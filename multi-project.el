@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.4
+;; Version: 0.0.5
 ;; Package-Version: $Id: multi-project.el 276 2010-09-28 03:12:19Z ellis $
 ;; Keywords: project
 ;;
@@ -475,23 +475,24 @@ Optional argument OTHERWINDOW open another window."
       (multi-project-change-tags (car project-list))
       (message "Loaded tags for %s " (car project-list)))))
 
-          
-(defun multi-project-insert-line(key fs)
-  (let ((numtabs (ceiling (- (* 2 tab-width) (length key)) tab-width)))
-    (if (>= (+ 2 (length key)) tab-width)
-        (setq numtabs 1))
+(defun multi-project-max-length(projects)
+  "Retrun the max length of a project."
+  (apply 'max(mapcar (lambda (x) (length (car x))) projects)))
 
+(defun multi-project-insert-line(key fs max-length)
+  (let ((numspaces (- max-length (length key))))
+    
     (insert (concat "  " key))
-
-    (while (> numtabs 0)
-      (insert "\t")
-      (setq numtabs (- numtabs 1)))
-
+    (while (> numspaces 0)
+      (insert " ")
+      (setq numspaces (- numspaces 1)))
+    (insert "\t")
     (insert fs)
+    
+    (insert " ")
     (add-text-properties (point-at-bol) (point-at-eol)
                          '(mouse-face highlight))
     (insert "\n")))
-
 
 ;;;###autoload
 (defun multi-project-display-projects()
@@ -539,19 +540,20 @@ Optional argument OTHERWINDOW open another window."
 	   ;; but it is close enough.
 	   '((0 . "")
 	     (2 . "Project")
-	     (20 . "Directory"))
+	     (30 . "Directory"))
 	   ""))
 
     (setq multi-project-roots (sort multi-project-roots (lambda (a b) (string< (car a) (car b)))))
     (erase-buffer)
-    (dolist (item multi-project-roots)
-      (if (and projectkey
-               (string-match projectkey (car item)))
-          (multi-project-insert-line (car item) (nth 1 item)))
+    (let ((max-length (multi-project-max-length multi-project-roots)))
+      (dolist (item multi-project-roots)
+	(if (and projectkey
+		 (string-match projectkey (car item)))
+	    (multi-project-insert-line (car item) (nth 1 item) max-length))
 
-      (if (equal projectkey nil)
-          (multi-project-insert-line (car item) (nth 1 item))))
-    (setq buffer-read-only t)
+	(if (equal projectkey nil)
+	    (multi-project-insert-line (car item) (nth 1 item) max-length))))
+      (setq buffer-read-only t)
 
     (goto-char (point-min))
 
@@ -663,7 +665,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 (defconst multi-project-file-buffer "*mp-find-file*"
   "Buffer used for finding files.")
 
-(defun multi-project-find-files (pattern)
+(defun multi-project-tag-find-files (pattern)
   "Find a list of files based upon a regular expression PATTERN."
   (let ((result nil))
     (save-excursion
@@ -676,7 +678,34 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
             (when (and (string-match pattern (file-name-nondirectory file)) file)
               (setq result (cons file result)))))))
     (sort result (lambda (a b) (string< a b)))))
-  
+
+(defun multi-project-gtag-find-files (pattern)
+  "Find a list of files based upon a regular expression PATTERN using global."
+  (let ((mp-gtags-buffer (get-buffer-create "*mp-gtags*")))
+    (with-current-buffer mp-gtags-buffer
+      (erase-buffer)
+      (call-process "global" nil t nil "-Poe" pattern)
+      (list (buffer-string)))))
+
+(defun multi-project-find-files (pattern)
+  "Find a list of files based upon a PATTERN."
+  (let ((tags-type (multi-project-tags-type
+		    (multi-project-find-by-name multi-project-current))))
+    (cond ((string= tags-type 'TAGS)
+	   (multi-project-tag-find-files pattern))
+	  ((string= tags-type 'GTAGS)
+	   (multi-project-gtag-find-files pattern)))))
+
+(defun multi-project-tags-type (project)
+  "Return TAGS or GTAGS based upon the PROJECT."
+  (let ((project-dir (nth 1 project)))
+    (cond ((and (>= (length project) 4) (file-exists-p (nth 3 project)))
+	   'TAGS)
+	  ((file-exists-p (concat project-dir "/" "GTAGS"))
+	   'GTAGS)
+	  ((file-exists-p (concat project-dir "/" "TAGS"))
+	   'TAGS))))
+			 
 (defvar multi-project-file-minibuffer-map
   (let ((map (copy-keymap minibuffer-local-map)))
     (define-key map (kbd "<down>") 'multi-project-file-next-line)
@@ -815,7 +844,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
     (setq project-subdir
 	  (multi-project-basename
            (multi-project-dir-as-file
-            (read-file-name "Place cursor on subdir: " project-directory
+            (read-file-name "Place cursor on: " project-directory
                             project-directory))))
 
     (setq project-list (list project-name project-directory project-subdir))
@@ -828,7 +857,11 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
       (if (and (> (length project-tags) 0)
 	       (file-exists-p project-tags)
 	       (string-match "TAGS$" project-tags))
-          (add-to-list 'project-list project-tags t)))
+          (add-to-list 'project-list project-tags t))
+      (when (y-or-n-p "Create a TAGS file? ")
+	(message "Creating TAGS file...")
+	(call-process-shell-command (concat "find " project-directory 
+					    " -type f | etags -"))))
 
     (add-to-list 'multi-project-roots project-list t)
     (multi-project-save-projects)
