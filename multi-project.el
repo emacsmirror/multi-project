@@ -1,11 +1,11 @@
-;;; multi-project --- Easily work with multiple projects.
+;;; multi-project.el --- Easily work with multiple projects.
 
-;; Copyright (C) 2010
+;; Copyright (C) 2010, 2012
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.5
-;; Package-Version: $Id: multi-project.el 276 2010-09-28 03:12:19Z ellis $
-;; Keywords: project
+;; Version: 0.0.7
+;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
+;; Keywords: project management
 ;;
 
 ;; multi-project.el is free software; you can redistribute it and/or modify
@@ -240,6 +240,12 @@ Optional argument OTHERWINDOW open another window."
   "Filter out empty strings from LST."
   (delq nil
 	(mapcar (lambda (x) (when (> (length x) 0) x)) lst)))
+
+(defun multi-project-trim-string (lst)
+  "Removes whitespace from the beginning and end of the string."
+  (mapcar (lambda (x) 
+            (replace-regexp-in-string "\\`[ \t\n]*" "" (replace-regexp-in-string "[ \t\n]*\\'" "" x))) lst))
+
 
 (defun multi-project-find-by-directory ()
   "Return the project list from the set of defined projects in multi-projects-roots."
@@ -612,8 +618,9 @@ Optional argument OTHERWINDOW open another window."
 						      (point-at-eol)))
         (solution)
         (project-list))
-    (setq solution (multi-project-filter-empty-string
-		    (split-string selectedline "[\t ]+")))
+    (setq solution (multi-project-trim-string
+                    (multi-project-filter-empty-string
+                     (split-string selectedline "[\t]+"))))
     (setq project-list (multi-project-find-by-name (car solution)))
     project-list))
 
@@ -694,7 +701,9 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
     (cond ((string= tags-type 'TAGS)
 	   (multi-project-tag-find-files pattern))
 	  ((string= tags-type 'GTAGS)
-	   (multi-project-gtag-find-files pattern)))))
+	   (multi-project-gtag-find-files pattern))
+	  (t
+	   (multi-project-tag-find-files pattern)))))
 
 (defun multi-project-tags-type (project)
   "Return TAGS or GTAGS based upon the PROJECT."
@@ -772,9 +781,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
   (interactive)
 
   ;; Try determining which TAGS file
-  (unless (get-buffer "TAGS")
-    (unless (multi-project-change-tags)
-      (error "Unable to get TAGS for project")))
+  (multi-project-change-tags)
 
   (add-hook 'post-command-hook 'multi-project-check-file-input)
 
@@ -860,7 +867,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
           (add-to-list 'project-list project-tags t))
       (when (y-or-n-p "Create a TAGS file? ")
 	(message "Creating TAGS file...")
-	(call-process-shell-command (concat "find " project-directory 
+	(call-process-shell-command (concat "find " project-directory
 					    " -type f | etags -"))))
 
     (add-to-list 'multi-project-roots project-list t)
