@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010, 2012
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.7
+;; Version: 0.0.8
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -34,7 +34,7 @@
 ;;
 ;; To use multi-project just add the following lines within your
 ;; .emacs file:
-;; 
+;;
 ;; (require 'multi-project)
 ;; (global-multi-project-mode)
 ;;
@@ -70,7 +70,7 @@
 ;;   (let ((project-name (car project-list))
 ;;	   (project-dir (nth 1 project-list))
 ;;	   (project-subdir (nth 2 project-list)))
-;;		       
+;;
 ;;     (cond ((string-match "proj1" project-name)
 ;;	      (concat "ant -f " project-dir "/" project-subdir "/build.xml"))
 ;;	     (t
@@ -88,7 +88,7 @@
   "Support for working with multiple projects."
   :prefix "multi-project"
   :group 'convenience)
-  
+
 (defcustom multi-project-roots nil
   "A list describing the project, filesystem root, subdirectory under the root, and the TAGS location."
   :group 'multi-project)
@@ -243,7 +243,7 @@ Optional argument OTHERWINDOW open another window."
 
 (defun multi-project-trim-string (lst)
   "Removes whitespace from the beginning and end of the string."
-  (mapcar (lambda (x) 
+  (mapcar (lambda (x)
             (replace-regexp-in-string "\\`[ \t\n]*" "" (replace-regexp-in-string "[ \t\n]*\\'" "" x))) lst))
 
 
@@ -271,7 +271,7 @@ Optional argument OTHERWINDOW open another window."
     (setq solution (read-from-minibuffer (concat "Project: " prompt "? ") nil))
     (setq result (multi-project-find-by-name solution))
     result))
-    
+
 (defun multi-project-compile-command (project-list)
   "Provide a compilation command based upon the PROJECT-LIST."
   (when project-list
@@ -281,7 +281,7 @@ Optional argument OTHERWINDOW open another window."
 	  (setq tree (replace-regexp-in-string "/.*:" ""
 					       (expand-file-name tree)))
 	  (setq tree (replace-regexp-in-string "/$" "" tree)))
-      
+
       (concat "make -C " tree))))
 
 (defun multi-project-compile-prompt (command)
@@ -314,7 +314,7 @@ Optional argument OTHERWINDOW open another window."
           (solutionlist
            (setq compile-command
                  (funcall multi-project-compilation-command solutionlist)))
-          
+
           (t
            (setq solutionlist (multi-project-find-by-name multi-project-last))
            (when solutionlist
@@ -329,7 +329,7 @@ Optional argument OTHERWINDOW open another window."
 (defun multi-project-find-root (parentDir childDir)
   "Takes two directories as arguments and return the first directory path that is different Argument PARENTDIR The parent directory of the child.  Argument CHILDDIR A directory found under the parent."
   (interactive)
-  
+
   (let ((tlst (split-string childDir "[/\\]"))
         (lst (split-string parentDir "[/\\]"))
         (fpath)
@@ -341,7 +341,7 @@ Optional argument OTHERWINDOW open another window."
       (setq lst (cdr lst))
       (setq tfpath (nth index tlst))
       (setq index (1+ index))
-      
+
       (if (string-equal fpath tfpath)
           (if root
               (setq root (append root (list fpath)))
@@ -367,7 +367,7 @@ Optional argument OTHERWINDOW open another window."
     ;; No 'file-remote-p so try to determine by filename
     (if (string-match "@?\\w+:" filename)
 	t)))
-    
+
 
 ;;;###autoload
 (defun multi-project-root ()
@@ -395,7 +395,7 @@ Optional argument OTHERWINDOW open another window."
   "Visits tags file based upon current directory"
   (interactive)
   (let ((solutionlist))
-    
+
     (if project
         (setq solutionlist (multi-project-find-by-name project))
       (setq solutionlist (multi-project-find-by-directory)))
@@ -444,7 +444,7 @@ Optional argument OTHERWINDOW open another window."
     (if multi-project-anchored
         (setq project multi-project-anchored)
       (setq project multi-project-last))
-  
+
     (setq result (multi-project-find-by-name project))
     (when result
       (multi-project-dired-solution result)
@@ -482,19 +482,20 @@ Optional argument OTHERWINDOW open another window."
       (message "Loaded tags for %s " (car project-list)))))
 
 (defun multi-project-max-length(projects)
-  "Retrun the max length of a project."
-  (apply 'max(mapcar (lambda (x) (length (car x))) projects)))
+  "Return the max length of a project."
+  (if projects
+      (apply 'max(mapcar (lambda (x) (length (car x))) projects))))
 
 (defun multi-project-insert-line(key fs max-length)
   (let ((numspaces (- max-length (length key))))
-    
+
     (insert (concat "  " key))
     (while (> numspaces 0)
       (insert " ")
       (setq numspaces (- numspaces 1)))
     (insert "\t")
     (insert fs)
-    
+
     (insert " ")
     (add-text-properties (point-at-bol) (point-at-eol)
                          '(mouse-face highlight))
@@ -594,7 +595,7 @@ Optional argument OTHERWINDOW open another window."
   "Move selection to the previous line."
   (interactive)
   (multi-project-move-selection multi-project-buffer 'next-line -1))
- 
+
 (defun multi-project-next-line ()
   "Move selection to the next line."
   (interactive)
@@ -605,7 +606,7 @@ Optional argument OTHERWINDOW open another window."
   nil
   " MP-Proj"
   multi-project-map)
-  
+
 (defun multi-project-quit ()
   "Kill the MP buffer."
   (interactive)
@@ -636,7 +637,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
       (setq multi-project-current (car project-list))
       (multi-project-change-tags (car project-list))
       (multi-project-dired-solution project-list nil otherwindow))))
-                      
+
 (defun multi-project-display-select-other-window ()
   "Select the project, but places it in another window."
   (interactive)
@@ -667,7 +668,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 
   (with-current-buffer multi-project-buffer
     (multi-project-display-select)))
-  
+
 
 (defconst multi-project-file-buffer "*mp-find-file*"
   "Buffer used for finding files.")
@@ -714,7 +715,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 	   'GTAGS)
 	  ((file-exists-p (concat project-dir "/" "TAGS"))
 	   'TAGS))))
-			 
+
 (defvar multi-project-file-minibuffer-map
   (let ((map (copy-keymap minibuffer-local-map)))
     (define-key map (kbd "<down>") 'multi-project-file-next-line)
@@ -729,7 +730,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
   "Move selection to the previous line."
   (interactive)
   (multi-project-move-selection multi-project-file-buffer 'next-logical-line -1))
- 
+
 (defun multi-project-file-next-line ()
   "Move selection to the next line."
   (interactive)
@@ -774,7 +775,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
       (save-excursion
 	(visit-tags-table-buffer)
 	(find-file filename)))))
-  
+
 ;;;###autoload
 (defun multi-project-find-file ()
   "Search a TAGS file for a particular file that match a user's input."
@@ -818,7 +819,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 	(file))
 
     (setq file (multi-project-file-base (nth 1 project) filename))
-    
+
     (save-excursion
       (with-current-buffer tags-buf
         (goto-char (point-max))
@@ -875,7 +876,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 
     (message "Added %s" project-name)
     project-name))
-                         
+
 (defun multi-project-delete-project (project)
   "Delete a project named PROJECT from the list of managed projects."
   (let ((lst (multi-project-filter-name project multi-project-roots)))
@@ -923,7 +924,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
   (when (file-exists-p filename)
     (with-current-buffer (find-file-noselect filename)
       (multi-project-list-from-buffer))))
-    
+
 (defun multi-project-read-projects ()
   "Read the project configuration."
   (interactive)
@@ -966,7 +967,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
   "Mark the project for deletion."
   (interactive)
   (multi-project-mark-project "D"))
-  
+
 (defun multi-project-marked-projects (marker)
   "Return a list of marked projects based upon MARKER."
   (let ((lst))
