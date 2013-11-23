@@ -362,13 +362,13 @@ Optional argument OTHERWINDOW open another window."
   (replace-regexp-in-string "/$" "" directory))
 
 (defun multi-project-remote-file (filename)
-  "Returns t if the FILENAME is remote."
+  "Returns the filename if it is remote and nil if it is local."
   (if (and (fboundp 'file-remote-p)
 	   (file-remote-p filename))
-      t
+      filename
     ;; No 'file-remote-p so try to determine by filename
     (if (string-match "@?\\w+:" filename)
-	t)))
+	filename)))
 
 (defun multi-project-remote-prefix (filename)
   (if (multi-project-remote-file filename)
@@ -683,14 +683,14 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
             (tags-add-tables nil))
         (when  (visit-tags-table-buffer)
 	  (let ((remote-prefix
-		  (nth 1 (multi-project-find-by-name multi-project-current))))
+		 (multi-project-remote-prefix (nth 1 (multi-project-find-by-name multi-project-current)))))
 
 	    (unless tags-table-files (tags-table-files))
 
 	    (dolist (file tags-table-files)
 	      (when (and (string-match pattern (file-name-nondirectory file)) file)
 		(if remote-prefix
-		    (setq file (concat remote-prefix "/" file)))
+		    (setq file (concat remote-prefix file)))
 
 		(setq result (cons file result))))))))
     (sort result (lambda (a b) (string< a b)))))
