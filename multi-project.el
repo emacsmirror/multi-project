@@ -682,13 +682,15 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
       (let ((large-file-warning-threshold nil)
             (tags-add-tables nil))
         (when  (visit-tags-table-buffer)
-	  (let ((remote-prefix (multi-project-remote-prefix tags-file-name)))
+	  (let ((remote-prefix
+		  (nth 1 (multi-project-find-by-name multi-project-current))))
+
 	    (unless tags-table-files (tags-table-files))
 
 	    (dolist (file tags-table-files)
 	      (when (and (string-match pattern (file-name-nondirectory file)) file)
 		(if remote-prefix
-		    (setq file (concat remote-prefix file)))
+		    (setq file (concat remote-prefix "/" file)))
 
 		(setq result (cons file result))))))))
     (sort result (lambda (a b) (string< a b)))))
