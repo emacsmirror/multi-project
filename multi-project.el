@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010, 2012, 2013
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.9
+;; Version: 0.0.11
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -116,7 +116,7 @@
   "Overlay used to highlight the current selection.")
 
 (defvar multi-project-previous-input nil
-  "Prior input when performing a search." )
+  "Prior input when performing a search.")
 
 (defvar multi-project-previous-file-input nil
   "Prior input when performing a file search." )
@@ -362,13 +362,20 @@ Optional argument OTHERWINDOW open another window."
   (replace-regexp-in-string "/$" "" directory))
 
 (defun multi-project-remote-file (filename)
-  "Return t if the FILENAME is remote."
-  (if (fboundp 'file-remote-p)
-      (file-remote-p filename)
+  "Returns t if the FILENAME is remote."
+  (if (and (fboundp 'file-remote-p)
+	   (file-remote-p filename))
+      t
     ;; No 'file-remote-p so try to determine by filename
     (if (string-match "@?\\w+:" filename)
 	t)))
 
+(defun multi-project-remote-prefix (filename)
+  (if (multi-project-remote-file filename)
+      (if (fboundp 'file-remote-p)
+	  (file-remote-p filename)
+	(if (string-match "\\(/.*@?\\w+:\\)+" filename)
+	    (match-string 0 filename)))))
 
 ;;;###autoload
 (defun multi-project-root ()
@@ -403,20 +410,10 @@ Optional argument OTHERWINDOW open another window."
 
     (if solutionlist
         (let ((filename (nth 3 solutionlist)))
+	  (if filename
+	      (setq filename (expand-file-name filename)))
 
-	  ;; if TAGS wasn't specified look for one in the top level
-	  ;; directory
-	  (unless filename
-	    (setq filename (concat (nth 1 solutionlist) "/" "TAGS")))
-
-          ;; if TAGS still doesn't exist visit the parent to see if the
-          ;; the file exists
-          (unless (file-exists-p filename)
-            (setq filename (concat (multi-project-dirname (nth 1 solutionlist))
-                                   "/" "TAGS")))
-
-	  (setq filename (expand-file-name filename))
-          (when (and (file-exists-p filename) (not (multi-project-remote-file filename)))
+          (when (and filename (file-exists-p (expand-file-name filename)))
             (let ((large-file-warning-threshold nil)
                   (tags-add-tables nil)
 		  (tags-buffer (get-buffer "TAGS")))
@@ -431,11 +428,10 @@ Optional argument OTHERWINDOW open another window."
 		       (setq load-tags t)))
 
 		(when load-tags
-		  (visit-tags-table filename)
-		  (message "TAGS changed to %s" tags-file-name))
+		  (let ((tags-revert-without-query t))
+		    (visit-tags-table filename)
+		    (message "TAGS changed to %s" tags-file-name)))
 		load-tags)))))))
-
-
 
 ;;;###autoload
 (defun multi-project-last()
@@ -613,6 +609,13 @@ Optional argument OTHERWINDOW open another window."
   (interactive)
   (quit-window))
 
+(defun multi-project-switch (project-name &optional otherwindow)
+  "Switches to the project based upon the project-name"
+  (let ((project-list (multi-project-find-by-name project-name)))
+    (setq multi-project-current (car project-list))
+    (multi-project-change-tags (car project-list))
+    (multi-project-dired-solution project-list nil otherwindow)))
+
 (defun multi-project-select ()
   "Select the project from the displayed list."
   (interactive)
@@ -635,9 +638,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
       (if (not (string= multi-project-current multi-project-last))
           (setq multi-project-last multi-project-current))
 
-      (setq multi-project-current (car project-list))
-      (multi-project-change-tags (car project-list))
-      (multi-project-dired-solution project-list nil otherwindow))))
+      (multi-project-switch (car project-list)))))
 
 (defun multi-project-display-select-other-window ()
   "Select the project, but places it in another window."
@@ -681,11 +682,15 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
       (let ((large-file-warning-threshold nil)
             (tags-add-tables nil))
         (when  (visit-tags-table-buffer)
-          (unless tags-table-files (tags-table-files))
+	  (let ((remote-prefix (multi-project-remote-prefix tags-file-name)))
+	    (unless tags-table-files (tags-table-files))
 
-          (dolist (file tags-table-files)
-            (when (and (string-match pattern (file-name-nondirectory file)) file)
-              (setq result (cons file result)))))))
+	    (dolist (file tags-table-files)
+	      (when (and (string-match pattern (file-name-nondirectory file)) file)
+		(if remote-prefix
+		    (setq file (concat remote-prefix file)))
+
+		(setq result (cons file result))))))))
     (sort result (lambda (a b) (string< a b)))))
 
 (defun multi-project-gtag-find-files (pattern)
@@ -783,23 +788,24 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
   "Search a TAGS file for a particular file that match a user's input."
   (interactive)
 
-  ;; Try determining which TAGS file
-  (multi-project-change-tags)
+  (let ((tags-revert-without-query t))
+    ;; Try determining which TAGS file
+    (multi-project-change-tags)
 
-  (add-hook 'post-command-hook 'multi-project-check-file-input)
+    (add-hook 'post-command-hook 'multi-project-check-file-input)
 
-  (switch-to-buffer multi-project-file-buffer)
-  (setq multi-project-overlay (make-overlay (point-min) (point-min)))
-  (overlay-put multi-project-overlay 'face 'multi-project-selection-face)
+    (switch-to-buffer multi-project-file-buffer)
+    (setq multi-project-overlay (make-overlay (point-min) (point-min)))
+    (overlay-put multi-project-overlay 'face 'multi-project-selection-face)
 
-  (unwind-protect
-      (let ((minibuffer-local-map multi-project-file-minibuffer-map))
-	(read-string "Filename substring: "))
-    (remove-hook 'post-command-hook 'multi-project-check-file-input))
+    (unwind-protect
+	(let ((minibuffer-local-map multi-project-file-minibuffer-map))
+	  (read-string "Filename substring: "))
+      (remove-hook 'post-command-hook 'multi-project-check-file-input))
 
-  (with-current-buffer multi-project-file-buffer
-    (multi-project-file-select))
-  (kill-buffer multi-project-file-buffer))
+    (with-current-buffer multi-project-file-buffer
+      (multi-project-file-select))
+    (kill-buffer multi-project-file-buffer)))
 
 ;;;###autoload
 (defadvice find-tag (before multi-project-find-tag
@@ -837,16 +843,56 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
         (multi-project-dired-solution project)
         (message "Present project %s" (car project))))))
 
+(defun multi-project-execute-tags-command (buffer-name etags-command)
+  (if (fboundp 'async-shell-command)
+      (async-shell-command etags-command buffer-name)
+    (shell-command etags-command buffer-name)))
+
+(defun multi-project-tramp-local-file (filename)
+  "Returns the local filename if we have a remote file or the filename."
+  (let ((local-filename filename))
+    (if (file-remote-p filename)
+	(let ((tramp-vec (tramp-dissect-file-name filename)))
+	  (setq local-filename (tramp-file-name-localname tramp-vec))))
+    local-filename))
+
+(defun multi-project-create-tags-command (project-directory project-tags)
+  "Provides the command to create the TAGS file."
+  (interactive)
+
+  (let ((local-project-directory
+	 (multi-project-tramp-local-file project-directory))
+
+	(local-project-tags (multi-project-tramp-local-file project-tags)))
+
+    (let ((files-command (concat "find " local-project-directory
+				 " -type f -print")))
+
+      (cond ((file-exists-p (concat local-project-directory "/.hg"))
+	     (setq files-command "hg locate"))
+
+	    ((file-exists-p (concat local-project-directory "/.svn"))
+	     (setq files-command "svn ls -R | grep -v -e '/$'"))
+
+	    ((file-exists-p (concat local-project-directory "/.git"))
+	     (setq files-command
+		   (concat "git log --pretty=format: --name-only "
+			   "--diff-filter=A | sort -"))))
+
+      (concat files-command " | etags -o " local-project-tags " -"))))
+
 (defun multi-project-add-project ()
   "Add a project to the list of projects."
   (interactive)
-  (let ((project-name)
+  (let ((project-name (buffer-name))
         (project-directory)
         (project-tags)
         (project-subdir)
         (project-list))
 
-    (setq project-name (read-from-minibuffer "Project name: "))
+    (setq project-name (read-from-minibuffer "Project name: "
+					     project-name nil nil nil
+					     project-name))
     (setq project-directory
           (multi-project-dir-as-file
            (read-file-name "Project directory: " nil default-directory)))
@@ -854,28 +900,35 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
     (setq project-subdir
 	  (multi-project-basename
            (multi-project-dir-as-file
-            (read-file-name "Place cursor on: " project-directory
-                            project-directory))))
+            (read-file-name "Place cursor on: "
+			    (file-name-as-directory project-directory)
+                            (file-name-as-directory project-directory)))))
 
     (setq project-list (list project-name project-directory project-subdir))
 
     (let ((tags-file (concat project-directory "/TAGS")))
-      (unless (file-exists-p tags-file)
-        (setq tags-file nil))
 
-      (setq project-tags (read-file-name "Project tags: " nil tags-file))
+      (setq project-tags (read-file-name "Project tags: " tags-file tags-file))
       (if (and (> (length project-tags) 0)
 	       (file-exists-p project-tags)
 	       (string-match "TAGS$" project-tags))
           (add-to-list 'project-list project-tags t))
-      (when (y-or-n-p "Create a TAGS file? ")
+
+      (when (and (not (file-exists-p project-tags))
+		 (y-or-n-p "Create a TAGS file? "))
 	(message "Creating TAGS file...")
-	(call-process-shell-command (concat "find " project-directory
-					    " -type f | etags -"))))
+	(let ((buffer-name (concat "*" project-name "-TAGS*"))
+	      (etags-command
+	       (multi-project-create-tags-command project-directory
+						  project-tags)))
+
+	      (multi-project-execute-tags-command buffer-name etags-command)
+	      (add-to-list 'project-list project-tags t))))
 
     (add-to-list 'multi-project-roots project-list t)
     (multi-project-save-projects)
 
+    (multi-project-switch (car project-list))
     (message "Added %s" project-name)
     project-name))
 
@@ -975,9 +1028,9 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
   (let ((lst))
     (save-excursion
       (goto-char (point-min))
-      (while (re-search-forward (concat "^" marker " +\\([^ \t]+\\)") nil t)
+      (while (re-search-forward (concat "^" marker " +\\([^\t]+\\)") nil t)
         (setq lst (cons (match-string 1) lst))))
-    lst))
+    (multi-project-trim-string lst)))
 
 (defun multi-project-execute-actions ()
   "Execute the action on the marked projects."
