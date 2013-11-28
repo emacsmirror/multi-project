@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010, 2012, 2013
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.11
+;; Version: 0.0.12
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -681,7 +681,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
     (save-excursion
       (let ((large-file-warning-threshold nil)
             (tags-add-tables nil))
-        (when  (visit-tags-table-buffer)
+        (when  (and (get-buffer "TAGS") (visit-tags-table-buffer))
 	  (let ((remote-prefix
 		 (multi-project-remote-prefix (nth 1 (multi-project-find-by-name multi-project-current)))))
 
@@ -853,10 +853,17 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 (defun multi-project-tramp-local-file (filename)
   "Returns the local filename if we have a remote file or the filename."
   (let ((local-filename filename))
-    (if (file-remote-p filename)
+    (if (and (fboundp 'file-remote-p)
+	     (fboundp 'tramp-dissect-file-name)
+	     (fboundp 'tramp-file-name-localname)
+	     (file-remote-p filename))
 	(let ((tramp-vec (tramp-dissect-file-name filename)))
-	  (setq local-filename (tramp-file-name-localname tramp-vec))))
-    local-filename))
+	  (setq local-filename (tramp-file-name-localname tramp-vec)))
+
+      ;; older verison of tramp so just try grabbing the last element
+      (last (split-string filename ":"))
+
+    local-filename)))
 
 (defun multi-project-create-tags-command (project-directory project-tags)
   "Provides the command to create the TAGS file."
@@ -865,7 +872,8 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
   (let ((local-project-directory
 	 (multi-project-tramp-local-file project-directory))
 
-	(local-project-tags (multi-project-tramp-local-file project-tags)))
+	(local-project-tags (multi-project-tramp-local-file
+			     (expand-file-name project-tags))))
 
     (let ((files-command (concat "find " local-project-directory
 				 " -type f -print")))
