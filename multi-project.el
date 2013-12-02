@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010, 2012, 2013
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.12
+;; Version: 0.0.13
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -861,7 +861,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 	  (setq local-filename (tramp-file-name-localname tramp-vec)))
 
       ;; older verison of tramp so just try grabbing the last element
-      (last (split-string filename ":"))
+      (setq local-filename (last (split-string filename ":")))
 
     local-filename)))
 
