@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010, 2012, 2013
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.13
+;; Version: 0.0.14
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -852,18 +852,18 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 
 (defun multi-project-tramp-local-file (filename)
   "Returns the local filename if we have a remote file or the filename."
-  (let ((local-filename filename))
-    (if (and (fboundp 'file-remote-p)
-	     (fboundp 'tramp-dissect-file-name)
-	     (fboundp 'tramp-file-name-localname)
-	     (file-remote-p filename))
-	(let ((tramp-vec (tramp-dissect-file-name filename)))
-	  (setq local-filename (tramp-file-name-localname tramp-vec)))
+  (cond ((and (fboundp 'file-remote-p)
+	      (fboundp 'tramp-dissect-file-name)
+	      (fboundp 'tramp-file-name-localname)
+	      (file-remote-p filename))
+	 (let ((tramp-vec (tramp-dissect-file-name filename)))
+	   (tramp-file-name-localname tramp-vec)))
 
-      ;; older verison of tramp so just try grabbing the last element
-      (setq local-filename (last (split-string filename ":")))
+	;; older verison of tramp so just try grabbing the last element
+	((and (fboundp 'file-remote-p) (file-remote-p filename))
+	 (car (last (split-string filename ":"))))
 
-    local-filename)))
+	(t filename)))
 
 (defun multi-project-create-tags-command (project-directory project-tags)
   "Provides the command to create the TAGS file."
