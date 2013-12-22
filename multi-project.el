@@ -233,8 +233,9 @@ Optional argument OTHERWINDOW open another window."
   (car
    (delq nil
 	 (mapcar
-	  (lambda (x) (and (string-match (expand-file-name (nth 1 x))
-					 (expand-file-name projectdir))
+	  (lambda (x) (and (string-match
+			    (expand-file-name (concat (nth 1 x) "/"))
+			    (expand-file-name projectdir))
 			   x)) lst))))
 
 (defun multi-project-filter-empty-string (lst)
