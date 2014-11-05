@@ -1,9 +1,9 @@
 ;;; multi-project.el --- Easily work with multiple projects.
 
-;; Copyright (C) 2010, 2012, 2013, 2014
+;; Copyright (C) 2010 - 2014
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.15
+;; Version: 0.0.16
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -431,6 +431,8 @@ Optional argument OTHERWINDOW open another window."
     (if project
         (setq solutionlist (multi-project-find-by-name project))
       (setq solutionlist (multi-project-find-by-directory)))
+
+    (setq multi-project-current (car solutionlist))
 
     (if solutionlist
         (let ((filename (nth 3 solutionlist)))
