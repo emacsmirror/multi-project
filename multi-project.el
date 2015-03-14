@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2014
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.16
+;; Version: 0.0.17
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -48,7 +48,7 @@
 ;; C-xpp - Present project           Displays current project
 ;; C-xpf - Find project files        Interactively find project files
 ;; C-xpn - Add a new project         Prompts for new project information
-;; C-xpt - Go to project top         Displays the project root
+;; C-xpr - Go to project root        Displays the project root
 ;;
 ;; When displaying the projects, the following bindings are present:
 ;; s     - Search projects:          Searches from the list of possible projects
@@ -153,7 +153,6 @@
     (define-key map (kbd "C-x pf") 'multi-project-find-file)
     (define-key map (kbd "C-x pn") 'multi-project-add-project)
     (define-key map (kbd "C-x pp") 'multi-project-current-project)
-    (define-key map (kbd "C-x pt") 'multi-project-top)
     (define-key map (kbd "C-x pg") 'multi-project-interactive-grep)
     map)
   "Global keymap for multi-project.")
@@ -466,7 +465,9 @@ Optional argument OTHERWINDOW open another window."
   (let ((project) (result))
     (if multi-project-anchored
         (setq project multi-project-anchored)
-      (setq project multi-project-last))
+      (if multi-project-last
+	  (setq project multi-project-last)
+	(setq project multi-project-current)))
 
     (setq result (multi-project-find-by-name project))
     (when result
@@ -870,14 +871,6 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
       (when project
         ;;(multi-project-dired-project project)
         (message "Current project %s" (car project))))))
-
-(defun multi-project-top ()
-  "Jumps to the project dir"
-  (interactive)
-  (when multi-project-current
-    (let ((project (multi-project-find-by-name multi-project-current)))
-      (when project
-        (multi-project-dired-project project)))))
 
 (defun multi-project-interactive-grep ()
   "Run grep-find interactively."
