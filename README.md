@@ -8,5 +8,7 @@ automatically switching the TAGS file for symbol lookup.
 To use multi-project just add the following lines within your
 .emacs file:
 
+```elisp
 (require 'multi-project)
 (global-multi-project-mode)
+```
