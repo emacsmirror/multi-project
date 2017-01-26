@@ -12,3 +12,7 @@ To use multi-project just add the following lines within your
 (require 'multi-project)
 (global-multi-project-mode)
 ```
+
+## Switching Projects ##
+
+![Multi-project-recording.gif](https://bitbucket.org/repo/Rxnzy/images/1578877238-Multi-project-recording.gif)
