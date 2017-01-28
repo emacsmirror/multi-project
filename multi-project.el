@@ -1,9 +1,9 @@
 ;;; multi-project.el --- Easily work with multiple projects.
 
-;; Copyright (C) 2010 - 2016
+;; Copyright (C) 2010 - 2017
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.18
+;; Version: 0.0.19
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -44,8 +44,9 @@
 ;;                                   multi-project-anchored
 ;; C-xpg - Run grep-find             Runs grep-find at project top
 ;; C-xpu - Resets the anchor         Clears out the multi-project-anchored var
-;; C-xpl - Last project from Anchor  Jumps to the project stored via the anchor
+;; C-xpl - Last project from anchor  Jumps to the project stored via the anchor
 ;; C-xpp - Present project           Displays current project
+;; C-xpv - Vist current project      Visits current project
 ;; C-xpf - Find project files        Interactively find project files
 ;; C-xpn - Add a new project         Prompts for new project information
 ;; C-xpr - Go to project root        Displays the project root
@@ -149,7 +150,7 @@
     (define-key map (kbd "C-x pr") 'multi-project-root)
     (define-key map (kbd "C-x pj") 'multi-project-display-projects)
     (define-key map (kbd "C-x pc") 'multi-project-compile)
-    (define-key map (kbd "C-x pv")  'multi-project-change-tags)
+    (define-key map (kbd "C-x pv") 'multi-project-visit-current-project)
     (define-key map (kbd "C-x pf") 'multi-project-find-file)
     (define-key map (kbd "C-x pn") 'multi-project-add-project)
     (define-key map (kbd "C-x pp") 'multi-project-current-project)
@@ -872,6 +873,16 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
       (when project
         ;;(multi-project-dired-project project)
         (message "Current project %s" (car project))))))
+
+(defun multi-project-visit-current-project ()
+  "Displays the current project in the minibuffer."
+  (interactive)
+  (when multi-project-current
+    (let ((project (multi-project-find-by-name multi-project-current)))
+      (when project
+        (multi-project-dired-project project)
+        (message "Current project %s" (car project))))))
+
 
 (defun multi-project-compose-grep ()
   "Composes the grep command that ignores version control directories like .svn, .hg, and .git. If no version control directory is found, the default grep-find-command is returned"
