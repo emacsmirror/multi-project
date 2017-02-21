@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2017
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.20
+;; Version: 0.0.21
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -156,6 +156,7 @@
     (define-key map (kbd "C-x pp") 'multi-project-current-project)
     (define-key map (kbd "C-x pg") 'multi-project-interactive-grep)
     (define-key map (kbd "C-x ps") 'multi-project-shell)
+    (define-key map (kbd "C-x pt") 'multi-project-recreate-tags)
     map)
   "Global keymap for multi-project.")
 
@@ -427,6 +428,10 @@ under the parent."
           (cdr filelist))
     (directory-file-name result)))
 
+(defun multi-project-visit-tags (filename)
+  (let ((tags-revert-without-query t))
+    (visit-tags-table filename)))
+
 ;;;###autoload
 (defun multi-project-change-tags(&optional project)
   "Visits tags file based upon current directory. The optional
@@ -460,9 +465,8 @@ PROJECT argument will change tags to the specified PROJECT."
 		       (setq load-tags t)))
 
 		(when load-tags
-		  (let ((tags-revert-without-query t))
-		    (visit-tags-table filename)
-		    (message "TAGS changed to %s" tags-file-name)))
+		  (multi-project-visit-tags filename)
+		  (message "TAGS changed to %s" tags-file-name))
 		load-tags)))))))
 
 ;;;###autoload
@@ -717,18 +721,13 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
     (save-excursion
       (let ((large-file-warning-threshold nil)
             (tags-add-tables nil))
-        (when  (and (get-buffer "TAGS") (visit-tags-table-buffer))
-	  (let ((remote-prefix
-		 (multi-project-remote-prefix (nth 1 (multi-project-find-by-name multi-project-current-name)))))
+        (when (and (get-buffer "TAGS") (visit-tags-table-buffer))
+	  (unless tags-table-files (tags-table-files))
 
-	    (unless tags-table-files (tags-table-files))
-
-	    (dolist (file tags-table-files)
-	      (when (and (string-match pattern (file-name-nondirectory file)) file)
-		(if remote-prefix
-		    (setq file (concat remote-prefix file)))
-
-		(setq result (cons file result))))))))
+	  (dolist (file tags-table-files)
+	    (when (and (string-match pattern (file-name-nondirectory file))
+		       file)
+	      (setq result (cons file result)))))))
     (sort result (lambda (a b) (string< a b)))))
 
 (defun multi-project-gtag-find-files (pattern)
@@ -869,7 +868,7 @@ input."
   "Add the list of FILES to the TAGS-FILE file."
 
   (if (file-exists-p tags-file)
-      (visit-tags-table tags-file))
+      (multi-project-visit-tags tags-file))
 
   (let ((tags-buf (get-buffer-create "TAGS")))
     (with-current-buffer tags-buf
@@ -885,10 +884,21 @@ input."
 (defun multi-project-create-tags (project-name project-directory project-tags)
   "Creates a TAGS file based upon the the PROJECT-NAME and
 PROJECT-DIRECTORY. The contents are written to PROJECT-TAGS."
+
   (let ((buffer-name (concat "*" project-name "-TAGS*"))
 	(etags-command
 	 (multi-project-create-tags-command project-directory
 					    project-tags)))
+
+    ;; Kill off any prior TAGS buffer
+    (if (get-buffer "TAGS")
+	(kill-buffer (get-buffer "TAGS")))
+
+    ;; Kill off the created temp TAGS buffer if it exists from a prior
+    ;; invocation
+    (if (get-buffer buffer-name)
+	(kill-buffer (get-buffer buffer-name)))
+
 
     (multi-project-execute-tags-command buffer-name etags-command)
 
@@ -898,6 +908,28 @@ PROJECT-DIRECTORY. The contents are written to PROJECT-TAGS."
     (if (or (not (file-exists-p project-tags))
 	    (= 0 (nth 7 (file-attributes project-tags))))
 	(multi-project-create-tags-manually project-directory project-tags))))
+
+
+(defun multi-project-recreate-tags ()
+  "Creats or re-creates the tags file based upon the project."
+  (interactive)
+
+  (let ((project (multi-project-dir-current)))
+    (when project
+      (let* ((project-name (car project))
+	     (project-dir (nth 1 project))
+	     (project-tags (nth 3 project)))
+
+	(unless project-tags
+	  (setq project-tags (concat project-dir "/TAGS"))
+	  (setq project (append project (list project-tags)))
+
+	  (multi-project-delete-project (car project))
+	  (add-to-list 'multi-project-roots project t)
+	  (multi-project-save-projects))
+
+	(multi-project-create-tags project-name project-dir project-tags)
+	(multi-project-change-tags (car project))))))
 
 (defun multi-project-current ()
   "Finds the project based upon the current project and then the
@@ -1039,8 +1071,8 @@ PROJECT-DIRECTORY and PROJECT-TAGS."
 	(local-project-tags (multi-project-tramp-local-file
 			     (expand-file-name project-tags))))
 
-    (let ((files-command (concat "find " local-project-directory
-				 " -type f -print")))
+    (let ((files-command (concat "cd " local-project-directory "; "
+				 "find . -type f -print")))
 
       (cond ((file-exists-p (concat local-project-directory "/.hg"))
 	     (setq files-command "hg locate"))
@@ -1051,7 +1083,7 @@ PROJECT-DIRECTORY and PROJECT-TAGS."
 	    ((file-exists-p (concat local-project-directory "/.git"))
 	     (setq files-command
 		   (concat "git log --pretty=format: --name-only "
-			   "--diff-filter=A | sort -"))))
+			   "--diff-filter=A | sort - | grep -v '^$'"))))
 
       (concat files-command " | etags -o " local-project-tags " -"))))
 
@@ -1092,14 +1124,14 @@ PROJECT-DIRECTORY and PROJECT-TAGS."
 	(when (not (file-exists-p project-tags))
 	  (message "Creating TAGS file...")
 	  (multi-project-create-tags project-name project-directory project-tags)
-	  (add-to-list 'project-list project-tags t))
+	  (add-to-list 'project-list project-tags t))))
 
     (add-to-list 'multi-project-roots project-list t)
     (multi-project-save-projects)
 
     (multi-project-switch (car project-list))
     (message "Added %s" project-name)
-    project-name))))
+    project-name))
 
 (defun multi-project-delete-project (project)
   "Delete a project named PROJECT from the list of managed projects."
