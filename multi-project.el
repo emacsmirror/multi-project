@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2017
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.21
+;; Version: 0.0.22
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -862,6 +862,7 @@ input."
 	 (relative-files
 	  (mapcar (lambda (x) (file-relative-name x project-dir)) files)))
 
+    (message "Creating TAGS...")
     (multi-project-add-tags-files relative-files project-tags)))
 
 (defun multi-project-add-tags-files (files tags-file)
@@ -888,7 +889,8 @@ PROJECT-DIRECTORY. The contents are written to PROJECT-TAGS."
   (let ((buffer-name (concat "*" project-name "-TAGS*"))
 	(etags-command
 	 (multi-project-create-tags-command project-directory
-					    project-tags)))
+					    project-tags))
+	(process))
 
     ;; Kill off any prior TAGS buffer
     (if (get-buffer "TAGS")
@@ -900,13 +902,16 @@ PROJECT-DIRECTORY. The contents are written to PROJECT-TAGS."
 	(kill-buffer (get-buffer buffer-name)))
 
 
-    (multi-project-execute-tags-command buffer-name etags-command)
+    (setq process (multi-project-execute-tags-command buffer-name etags-command))
 
     ;; Create a list of files if etags is unable to provide
     ;; any contents for the TAGS file
 
-    (if (or (not (file-exists-p project-tags))
-	    (= 0 (nth 7 (file-attributes project-tags))))
+    (sleep-for 1)
+
+    (if (and (eq (process-status process) 'exit)
+	     (or (not (file-exists-p project-tags))
+		 (= 0 (nth 7 (file-attributes project-tags)))))
 	(multi-project-create-tags-manually project-directory project-tags))))
 
 
@@ -1041,9 +1046,8 @@ directory is found, the default grep-find-command is returned"
 
 
 (defun multi-project-execute-tags-command (buffer-name etags-command)
-  (if (fboundp 'async-shell-command)
-      (async-shell-command etags-command buffer-name)
-    (shell-command etags-command buffer-name)))
+  (start-file-process-shell-command buffer-name (get-buffer buffer-name)
+				    etags-command))
 
 (defun multi-project-tramp-local-file (filename)
   "Returns the local filename if we have a remote file."
