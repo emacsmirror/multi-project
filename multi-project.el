@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2017
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.22
+;; Version: 0.0.24
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -115,6 +115,12 @@
 
 (defvar multi-project-current-name nil
   "The current selected project name.")
+
+(defvar multi-project-history '()
+  "The history list of projects")
+
+(defvar multi-project-history-index 0
+  "Index for the project history")
 
 (defvar multi-project-overlay nil
   "Overlay used to highlight the current selection.")
@@ -290,6 +296,13 @@ multi-projects-roots."
 (defun multi-project-file-exists (project regexp)
   (directory-files (nth 1 project) nil regexp))
 
+(defun multi-project-cmd (cmd)
+  (let ((result cmd))
+    (if (eq system-type 'windows-nt)
+	(setq result (concat cmd ".bat")))
+    result))
+
+
 (defun multi-project-compile-command (project)
   "Provide a compilation command based upon the PROJECT."
   (cond ((multi-project-file-exists project "Makefile")
@@ -308,7 +321,7 @@ multi-projects-roots."
 	 (concat "rake -f " (nth 1 project) "/Rakefile"))
 
 	((multi-project-file-exists project "build.gradle")
-	 "gradle build")
+	 (concat (nth 1 project) "/" (multi-project-cmd "gradlew") " build"))
 
 	(t "make ")))
 
@@ -476,14 +489,19 @@ PROJECT argument will change tags to the specified PROJECT."
   (let ((project) (result))
     (if multi-project-anchored
         (setq project multi-project-anchored)
-      (if multi-project-last
-	  (setq project multi-project-last)
-	(setq project multi-project-current-name)))
 
-    (setq result (multi-project-find-by-name project))
-    (when result
-      (multi-project-dired-project result)
-      (message "Last project %s" project))))
+      (when multi-project-history
+	(setq multi-project-history-index (% (+ multi-project-history-index 1)
+					     (length multi-project-history)))
+	(setq project (nth multi-project-history-index multi-project-history)))
+
+    (when project
+      (setq multi-project-current-name project)
+
+      (setq result (multi-project-find-by-name project))
+      (when result
+	(multi-project-dired-project result)
+	(message "Last project %s" project))))))
 
 ;;;###autoload
 (defun multi-project-anchor()
@@ -654,7 +672,13 @@ by MOVEFUNC and MOVEARG."
   (let ((project-list (multi-project-find-by-name project-name)))
     (setq multi-project-current-name (car project-list))
     (multi-project-change-tags (car project-list))
-    (multi-project-dired-project project-list nil otherwindow)))
+    (multi-project-dired-project project-list nil otherwindow)
+
+    (when (not (string-equal multi-project-current-name
+			     (car multi-project-history)))
+      (setq multi-project-history-index 0)
+      (push multi-project-current-name multi-project-history))))
+
 
 (defun multi-project-select ()
   "Select the project from the displayed list."
