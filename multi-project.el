@@ -1,9 +1,10 @@
-;;; multi-project.el --- Easily work with multiple projects.
+;;; multi-project.el --- Find files, compile, search, and switch between
+;;; multiple projects.
 
 ;; Copyright (C) 2010 - 2017
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.24
+;; Version: 0.0.25
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: project management
 ;;
@@ -28,11 +29,10 @@
 ;;
 ;; Multi-project simplifies the switching between different projects by
 ;; providing support for creating, deleting, and searching between projects.
-;; Multi-project supports interactively finding a file within a project or
+;; Multi-project supports interactively finding a file within a project by
 ;; automatically switching the TAGS file for symbol lookup.
 ;;
-;; To use multi-project just add the following lines within your
-;; .emacs file:
+;; To use multi-project add the following lines within your .emacs file:
 ;;
 ;; (require 'multi-project)
 ;; (global-multi-project-mode)
@@ -493,7 +493,7 @@ PROJECT argument will change tags to the specified PROJECT."
       (when multi-project-history
 	(setq multi-project-history-index (% (+ multi-project-history-index 1)
 					     (length multi-project-history)))
-	(setq project (nth multi-project-history-index multi-project-history)))
+	(setq project (nth multi-project-history-index multi-project-history))))
 
     (when project
       (setq multi-project-current-name project)
@@ -501,7 +501,7 @@ PROJECT argument will change tags to the specified PROJECT."
       (setq result (multi-project-find-by-name project))
       (when result
 	(multi-project-dired-project result)
-	(message "Last project %s" project))))))
+	(message "Last project %s" project)))))
 
 ;;;###autoload
 (defun multi-project-anchor()
