@@ -10,7 +10,7 @@ To use multi-project just add the following lines within your
 
 ```elisp
 (require 'multi-project)
-(global-multi-project-mode)
+(multi-project-mode)
 ```
 
 ## Switching Projects ##
