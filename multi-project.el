@@ -1,10 +1,9 @@
-;;; multi-project.el --- Find files, compile, search, and switch between
-;;; multiple projects.
+;;; multi-project.el --- Find files, compile, and search for multiple projects.
 
-;; Copyright (C) 2010 - 2017
+;; Copyright (C) 2010 - 2018
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.26
+;; Version: 0.0.28
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: convenience project management
@@ -28,43 +27,48 @@
 ;;; Commentary:
 
 ;;
-;; Multi-project simplifies the switching between different projects by
-;; providing support for creating, deleting, and searching between projects.
-;; Multi-project supports interactively finding a file within a project by
-;; automatically switching the TAGS file for symbol lookup.
+;; Multi-project simplifies working with different projects by providing support
+;; for creating, deleting, and searching with projects.  Multi-project
+;; supports interactively finding a file within a project by using a TAGS file.
+
 ;;
 ;; To use multi-project add the following lines within your .emacs file:
 ;;
 ;; (require 'multi-project)
 ;; (multi-project-mode)
 ;;
-;; The following bindings are created for multi-project
-;; C-xpj - Project jump              Displays a list of projects
+;; The multi-project bindings below are for switching to a project, finding
+;; files within a project, compilation, or grepping a project.
+;;
+;; C-xpa - Anchor a project          Remember the current project
 ;; C-xpc - Project compile           Run the compilation command for a project
-;; C-xpa - Anchor a project          Stores the project to be retrieved via
+;; C-xpj - Project jump              Displays a list of projects
 ;;                                   multi-project-anchored
-;; C-xpg - Run grep-find             Runs grep-find at project top
-;; C-xpu - Resets the anchor         Clears out the multi-project-anchored var
-;; C-xpl - Last project from anchor  Jumps to the project stored via the anchor
-;; C-xpp - Present project           Displays current project
-;; C-xpv - Vist current project      Visits current project
+;; C-xpg - Run grep-find             Runs grep-find at project root
+;; C-xpl - Last project or anchor    Jumps to the last project or anchor
+;; C-xpp - Present project           Jumps to the current project root
 ;; C-xpf - Find project files        Interactively find project files
 ;; C-xpn - Add a new project         Prompts for new project information
-;; C-xpr - Go to project root        Displays the project root
+;; C-xpr - Go to project root        Visits the project root
+;; C-xps - Project shell             Creates a project shell
+;; C-xpu - Resets the anchor         Unsets the project anchor
+;; C-xpv - Visit a project           Visits another project in a separate frame
+
 ;;
-;; When displaying the projects, the following bindings are present:
-;; s     - Search projects:          Searches from the list of possible projects
+;; From the project selection buffer the following bindings are present:
+;; a     - Anchor a project          Remembers the project to quickly return
+;;                                   after visiting another project.
 ;; C-n   - Next project              Move the cursor to the next project
 ;; C-p   - Previous project          Move the cursor to the previous project
-;; a     - Anchor a project          Holds the last project to the anchored
-;;                                   project
-;; r     - Reset search              Resets the project search
-;; N     - Add new project           Prompts for project information
 ;; d     - Delete a project          Marks the project for deletion
 ;; g     - Grep a project            Executes grep-find in the selected projects
+;; r     - Reset search              Resets the project search filter
+;; s     - Search projects           Searches by name for a project
+;; N     - Add new project           Prompts for project information
+;; q     - Quit
 ;; u     - Unmark a project          Removes the mark for a project
 ;; x     - Executes actions          Executes the deletions
-;; q     - quit
+
 ;;
 ;; The multi-project-compilation-command variable can be set to a function
 ;; that provides a customized compilation command.  For example,
@@ -96,11 +100,11 @@
 
 (defcustom multi-project-roots nil
   "A list describing the project, filesystem root, subdirectory under the root, and the TAGS location."
-  :group 'multi-project)
+  :type 'sexp :group 'multi-project)
 
 (defcustom multi-project-compilation-command 'multi-project-compile-command
   "The fuction to use when compiling a project."
-  :group 'multi-project)
+  :type 'string :group 'multi-project)
 
 (defvar multi-project-dir (concat user-emacs-directory "multi-project")
   "Directory of the saved settings for multi-project.")
@@ -157,10 +161,9 @@
     (define-key map (kbd "C-x pr") 'multi-project-root)
     (define-key map (kbd "C-x pj") 'multi-project-display-projects)
     (define-key map (kbd "C-x pc") 'multi-project-compile)
-    (define-key map (kbd "C-x pv") 'multi-project-visit-current-project)
+    (define-key map (kbd "C-x pv") 'multi-project-visit-project)
     (define-key map (kbd "C-x pf") 'multi-project-find-file)
     (define-key map (kbd "C-x pn") 'multi-project-add-project)
-    (define-key map (kbd "C-x pp") 'multi-project-current-project)
     (define-key map (kbd "C-x pg") 'multi-project-interactive-grep)
     (define-key map (kbd "C-x ps") 'multi-project-shell)
     (define-key map (kbd "C-x pt") 'multi-project-recreate-tags)
@@ -186,7 +189,6 @@
     (define-key map (kbd "q") 'multi-project-quit)
     (define-key map (kbd "s") 'multi-project-display-search)
     (define-key map (kbd "r") 'multi-project-display-reset)
-    (define-key map (kbd "t") 'multi-project-display-change-tags)
     (define-key map (kbd "d") 'multi-project-mark-deletions)
     (define-key map (kbd "g") 'multi-project-mark-grep)
     (define-key map (kbd "u") 'multi-project-unmark-project)
@@ -312,6 +314,10 @@ argument OTHERWINDOW open another window."
   (cond ((multi-project-file-exists project "Makefile")
 	 (concat "make -C " (nth 1 project) " "))
 
+	((multi-project-file-exists project "build.gradle")
+	 (concat (nth 1 project) "/" (multi-project-cmd "gradlew -b ")
+		 (nth 1 project) "/build.gradle build"))
+
 	((multi-project-file-exists project "pom.xml")
 	 "mvn compile")
 
@@ -323,9 +329,6 @@ argument OTHERWINDOW open another window."
 
 	((multi-project-file-exists project "Rakefile")
 	 (concat "rake -f " (nth 1 project) "/Rakefile"))
-
-	((multi-project-file-exists project "build.gradle")
-	 (concat (nth 1 project) "/" (multi-project-cmd "gradlew") " build"))
 
 	(t "make ")))
 
@@ -696,7 +699,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
       (if (not (string= multi-project-current-name multi-project-last))
           (setq multi-project-last multi-project-current-name))
 
-      (multi-project-switch (car project-list)))))
+      (multi-project-switch (car project-list) otherwindow))))
 
 (defun multi-project-display-select-other-window ()
   "Select the project, but places it in another window."
@@ -973,29 +976,27 @@ The contents are written to PROJECT-TAGS."
       (setq result (multi-project-current)))
     result))
 
-;;;###autoload
-(defun multi-project-current-project ()
-  "Display the current project in the minibuffer."
+(defun multi-project-visit-project ()
+  "Makes a new frame with the list of projects to visit."
   (interactive)
-  (let ((project (multi-project-current)))
-    (if project
-	(message "Current project: %s" (car project))
-      (message "No project has been selected."))))
 
-
-(defun multi-project-visit-current-project ()
-  "Display the current project in the minibuffer."
-  (interactive)
-  (let ((project (multi-project-current)))
-    (when project
-      (multi-project-dired-project project)
-      (message "Current project %s" (car project)))))
-
+  (let ((frame-parameters-alist default-frame-alist)
+	frame)
+    (unless frame-parameters-alist
+      (let ((frame-start (car (frame-position)))
+	    (frame-width (frame-outer-width)))
+	(setq frame-parameters-alist
+	      (list (cons 'width (frame-width))
+		    (cons 'height (frame-height))
+		    (cons 'left (+ frame-start frame-width))))))
+    (setq frame (make-frame frame-parameters-alist))
+    (select-frame-set-input-focus frame)
+    (multi-project-display-projects)))
 
 (defun multi-project-compose-grep ()
   "Compose the grep command and ignore version control directories.
-Directories like .svn, .hg, and .git will be ignored.  If no
-version control directory is found, the default
+Directories like .svn, .hg, and .git will be ignored. If a
+version control directory is not found, the default
 ‘grep-find-command’ is returned"
   (let ((grep-command)
 	(exclusion))
@@ -1351,7 +1352,6 @@ project is used."
     ["Anchor project" multi-project-anchor t]
     ["Reset anchor" multi-project-reset-anchor t]
     ["Last project" multi-project-last t]
-    ["Display current project" multi-project-current-project t]
     ))
 
 (defun multi-project-insert-path ()
