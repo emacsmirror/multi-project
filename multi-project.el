@@ -1,9 +1,9 @@
 ;;; multi-project.el --- Find files, compile, and search for multiple projects.
 
-;; Copyright (C) 2010 - 2018
+;; Copyright (C) 2010 - 2019
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.28
+;; Version: 0.0.29
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: convenience project management
@@ -67,7 +67,7 @@
 ;; N     - Add new project           Prompts for project information
 ;; q     - Quit
 ;; u     - Unmark a project          Removes the mark for a project
-;; x     - Executes actions          Executes the deletions
+;; x     - Executes actions          Executes the selected operations
 
 ;;
 ;; The multi-project-compilation-command variable can be set to a function
@@ -164,9 +164,23 @@
     (define-key map (kbd "C-x pv") 'multi-project-visit-project)
     (define-key map (kbd "C-x pf") 'multi-project-find-file)
     (define-key map (kbd "C-x pn") 'multi-project-add-project)
+    (define-key map (kbd "C-x pp") 'multi-project-present-project)
     (define-key map (kbd "C-x pg") 'multi-project-interactive-grep)
     (define-key map (kbd "C-x ps") 'multi-project-shell)
     (define-key map (kbd "C-x pt") 'multi-project-recreate-tags)
+
+    (easy-menu-define multi-project-mode-menu map "'multi-project-mode' menu"
+      '("MP"
+	["Jump to a project" multi-project-display-projects t]
+	["Jump to the project root" multi-project-root t]
+	["Compile..." multi-project-compile t]
+	["Find file..." multi-project-find-file t]
+	["Grep project ..." multi-project-interactive-grep t]
+	["Add project..." multi-project-add-project t]
+	["Anchor project" multi-project-anchor t]
+	["Reset anchor" multi-project-reset-anchor t]
+	["Last project" multi-project-last t]))
+
     map)
   "Global keymap for multi-project.")
 
@@ -208,21 +222,19 @@
     map)
   "Keymap for multi-project-minibuffer.")
 
-(defun multi-project-dired (projectdir directory &optional searchdirectory
+(defun multi-project-dired (projectdir directory &optional location
 				       otherwindow)
   "Run `dired` on a particular project.
-The PROJECTDIR argument specifies the directory and the DIRECTORY
-argument is used to place the cursor on a directory within
-PROJECTDIR.  The SEARCHDIRECTORY argument specifies a different
-directory for the cursor instead of DIRECTORY.  Optional argument
-OTHERWINDOW if non-nil, then open up a buffer in a different
-windows."
+The PROJECTDIR specifies the project directory and the location
+argument is used to place the cursor on a file or directory
+within PROJECTDIR. Optional argument OTHERWINDOW if non-nil, then
+open up a buffer in a different windows."
   (if projectdir
       (let ((directorypath projectdir)
             (dir directory))
 
-        (if searchdirectory
-            (setq dir searchdirectory))
+        (if location
+            (setq dir location))
 
         (when directorypath
           (if otherwindow
@@ -230,15 +242,15 @@ windows."
             (dired directorypath))
           (goto-char (point-min))
           (when dir
-            (if (re-search-forward (concat "[0-9]+:[0-9]+ " "\\(" dir "\\)")
-				   nil t)
-                (goto-char (match-beginning 1))))))))
+            (if (re-search-forward dir nil t)
+                (goto-char (match-beginning 0))))))))
 
-(defun multi-project-dired-project (solutionlist &optional searchdirectory otherwindow)
+(defun multi-project-dired-project (solutionlist &optional location otherwindow)
   "Open up a dired window based upon the project.
-Argument SOLUTIONLIST Optional argument SEARCHDIRECTORY Optional
+Argument SOLUTIONLIST Optional argument LOCATION Optional
 argument OTHERWINDOW open another window."
-  (multi-project-dired (nth 1 solutionlist) (nth 2 solutionlist) searchdirectory otherwindow))
+  (multi-project-dired (nth 1 solutionlist) (nth 2 solutionlist) location
+		       otherwindow))
 
 (defun multi-project-filter-name (project lst)
   "Filter based upon the the PROJECT name of the LST."
@@ -976,6 +988,15 @@ The contents are written to PROJECT-TAGS."
       (setq result (multi-project-current)))
     result))
 
+;;;###autoload
+(defun multi-project-present-project ()
+  "Jumps to the present project."
+  (interactive)
+  (let ((projectlist (multi-project-current)))
+    (multi-project-dired-project projectlist)))
+
+
+;;;###autoload
 (defun multi-project-visit-project ()
   "Makes a new frame with the list of projects to visit."
   (interactive)
@@ -1015,6 +1036,7 @@ version control directory is not found, the default
 	      (+ 55 (length exclusion)))
       grep-find-command)))
 
+;;;###autoload
 (defun multi-project-interactive-grep ()
   "Run ‘grep-find’ interactively."
   (interactive)
@@ -1339,20 +1361,6 @@ project is used."
     (with-current-buffer (window-buffer window)
       (goto-char pos)
       (multi-project-display-select))))
-
-(easy-menu-define multi-project-mode-menu multi-project-map
-  "'multi-project-mode' menu"
-  '("MP"
-    ["Jump to a project" multi-project-display-projects t]
-    ["Jump to the project root" multi-project-root t]
-    ["Compile..." multi-project-compile t]
-    ["Find file..." multi-project-find-file t]
-    ["Grep project ..." multi-project-interactive-grep t]
-    ["Add project..." multi-project-add-project t]
-    ["Anchor project" multi-project-anchor t]
-    ["Reset anchor" multi-project-reset-anchor t]
-    ["Last project" multi-project-last t]
-    ))
 
 (defun multi-project-insert-path ()
   "Insert the directory path of the current project."
