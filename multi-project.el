@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2019
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.29
+;; Version: 0.0.30
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: convenience project management
@@ -173,6 +173,8 @@
       '("MP"
 	["Jump to a project" multi-project-display-projects t]
 	["Jump to the project root" multi-project-root t]
+	["Jump to current project" multi-project-present-project t]
+	["Visit a project in new frame" multi-project-visit-project t]
 	["Compile..." multi-project-compile t]
 	["Find file..." multi-project-find-file t]
 	["Grep project ..." multi-project-interactive-grep t]
@@ -1128,7 +1130,15 @@ project is used."
 	    ((file-exists-p (concat local-project-directory "/.git"))
 	     (setq files-command
 		   (concat "git log --pretty=format: --name-only "
-			   "--diff-filter=A | sort - | grep -v '^$'"))))
+			   "--diff-filter=A | sort - | grep -v '^$'")))
+
+	    ((file-exists-p (concat local-project-directory "/build.gradle"))
+	     (setq files-command (concat "cd " local-project-directory "; "
+					 "find . -path '*/build' -prune -o -type f -print")))
+	    ((file-exists-p (concat local-project-directory "/pom.xml"))
+	     (setq files-command
+		   (concat "cd " local-project-directory "; "
+			   "find . -path '*/target' -prune -o -type f -print"))))
 
       (concat files-command " | etags -o " local-project-tags " -"))))
 
