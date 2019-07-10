@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2019
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.30
+;; Version: 0.0.32
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
 ;; Keywords: convenience project management
@@ -468,9 +468,9 @@ PROJECT argument will change tags to the specified PROJECT."
         (setq solutionlist (multi-project-find-by-name project))
       (setq solutionlist (multi-project-find-by-directory)))
 
-    (setq multi-project-current-name (car solutionlist))
+    (when solutionlist
+	(setq multi-project-current-name (car solutionlist))
 
-    (if solutionlist
         (let ((filename (nth 3 solutionlist)))
 	  (if filename
 	      (setq filename (expand-file-name filename)))
@@ -1129,8 +1129,7 @@ project is used."
 
 	    ((file-exists-p (concat local-project-directory "/.git"))
 	     (setq files-command
-		   (concat "git log --pretty=format: --name-only "
-			   "--diff-filter=A | sort - | grep -v '^$'")))
+		   "git ls-tree --full-tree -r --name-only HEAD "))
 
 	    ((file-exists-p (concat local-project-directory "/build.gradle"))
 	     (setq files-command (concat "cd " local-project-directory "; "
