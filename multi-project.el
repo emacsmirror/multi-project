@@ -5,7 +5,7 @@
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
 ;; Version: 0.0.32
 ;; Package-Requires: ((emacs "25"))
-;; URL: https://bitbucket.org/ellisvelo/multi-project/overview
+;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
 ;;
 
