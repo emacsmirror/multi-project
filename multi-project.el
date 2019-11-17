@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2019
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.32
+;; Version: 0.0.33
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -47,6 +47,7 @@
 ;; C-xpg - Run grep-find             Runs grep-find at project root
 ;; C-xpl - Last project or anchor    Jumps to the last project or anchor
 ;; C-xpp - Present project           Jumps to the current project root
+;; C-xpP - Present project new frame Present project in a new frame
 ;; C-xpf - Find project files        Interactively find project files
 ;; C-xpn - Add a new project         Prompts for new project information
 ;; C-xpr - Go to project root        Visits the project root
@@ -165,6 +166,7 @@
     (define-key map (kbd "C-x pf") 'multi-project-find-file)
     (define-key map (kbd "C-x pn") 'multi-project-add-project)
     (define-key map (kbd "C-x pp") 'multi-project-present-project)
+    (define-key map (kbd "C-x pP") 'multi-project-present-project-new-frame)
     (define-key map (kbd "C-x pg") 'multi-project-interactive-grep)
     (define-key map (kbd "C-x ps") 'multi-project-shell)
     (define-key map (kbd "C-x pt") 'multi-project-recreate-tags)
@@ -174,6 +176,7 @@
 	["Jump to a project" multi-project-display-projects t]
 	["Jump to the project root" multi-project-root t]
 	["Jump to current project" multi-project-present-project t]
+	["Jump to current project in new frame " multi-project-present-project-new-frame t]
 	["Visit a project in new frame" multi-project-visit-project t]
 	["Compile..." multi-project-compile t]
 	["Find file..." multi-project-find-file t]
@@ -997,21 +1000,33 @@ The contents are written to PROJECT-TAGS."
   (let ((projectlist (multi-project-current)))
     (multi-project-dired-project projectlist)))
 
+(defun multi-project-create-frame-parameters ()
+  (let ((frame-parameters-alist default-frame-alist)
+	frame)
+    (unless frame-parameters-alist
+      (let ((frame-start (car (frame-position)))
+	    (frame-width (frame-outer-width)))
+	(list (cons 'width (frame-width))
+	      (cons 'height (frame-height))
+	      (cons 'left (+ frame-start frame-width)))))))
+
+;;;###autoload
+(defun multi-project-present-project-new-frame ()
+  "Jumps to the present project in a new frame."
+  (interactive)
+  (let ((frame-parameters-alist (multi-project-create-frame-parameters))
+	frame)
+    (setq frame (make-frame frame-parameters-alist))
+    (select-frame-set-input-focus frame)
+    (multi-project-present-project)))
 
 ;;;###autoload
 (defun multi-project-visit-project ()
   "Makes a new frame with the list of projects to visit."
   (interactive)
 
-  (let ((frame-parameters-alist default-frame-alist)
+  (let ((frame-parameters-alist (multi-project-create-frame-parameters))
 	frame)
-    (unless frame-parameters-alist
-      (let ((frame-start (car (frame-position)))
-	    (frame-width (frame-outer-width)))
-	(setq frame-parameters-alist
-	      (list (cons 'width (frame-width))
-		    (cons 'height (frame-height))
-		    (cons 'left (+ frame-start frame-width))))))
     (setq frame (make-frame frame-parameters-alist))
     (select-frame-set-input-focus frame)
     (multi-project-display-projects)))
