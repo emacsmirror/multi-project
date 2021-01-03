@@ -1,9 +1,9 @@
 ;;; multi-project.el --- Find files, compile, and search for multiple projects.
 
-;; Copyright (C) 2010 - 2019
+;; Copyright (C) 2010 - 2021
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.33
+;; Version: 0.0.34
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -276,7 +276,7 @@ argument OTHERWINDOW open another window."
 
 (defun multi-project-filter-dir (dir lst)
   "Return the projects for DIR based upon the LST of working directories."
-  (let ((project))
+  (let (project)
     (when (> (length dir) 0)
       (setq project (multi-project-compare-matches dir lst))
       (if project
@@ -305,9 +305,9 @@ argument OTHERWINDOW open another window."
 
 (defun multi-project-prompt ()
   "Prompts for the project to work with."
-  (let ((result)
-        (solution)
-        (prompt nil))
+  (let (result
+        solution
+        prompt)
     (dolist (item (reverse multi-project-roots) prompt)
       (setq prompt (append (car item) " " prompt)))
     (setq solution (read-from-minibuffer (concat "Project: " prompt "? ") nil))
@@ -320,7 +320,7 @@ argument OTHERWINDOW open another window."
 
 (defun multi-project-cmd (cmd)
   "Append .bat to CMD if executing under Windows."
-  (let ((result cmd))
+  (let (result cmd)
     (if (eq system-type 'windows-nt)
 	(setq result (concat cmd ".bat")))
     result))
@@ -448,8 +448,8 @@ argument OTHERWINDOW open another window."
 
 (defun multi-project-dirname (filename)
   "Return the directory name of FILENAME."
-  (let ((filelist)
-        (result))
+  (let (filelist
+        result)
     (setq filelist (reverse (split-string filename "/")))
     (mapc (lambda (x) (setq result (concat x "/" result)))
           (cdr filelist))
@@ -461,11 +461,11 @@ argument OTHERWINDOW open another window."
     (visit-tags-table filename)))
 
 ;;;###autoload
-(defun multi-project-change-tags(&optional project)
+(defun multi-project-change-tags (&optional project)
   "Visits tags file based upon current directory. The optional
 PROJECT argument will change tags to the specified PROJECT."
   (interactive)
-  (let ((solutionlist))
+  (let (solutionlist)
 
     (if project
         (setq solutionlist (multi-project-find-by-name project))
@@ -483,7 +483,7 @@ PROJECT argument will change tags to the specified PROJECT."
                   (tags-add-tables nil)
 		  (tags-buffer (get-buffer "TAGS")))
 
-	      (let ((load-tags))
+	      (let (load-tags)
 		(cond (tags-buffer
 		       (let ((tags-filename (buffer-file-name tags-buffer)))
 			 (when (not (string= tags-filename filename))
@@ -501,7 +501,7 @@ PROJECT argument will change tags to the specified PROJECT."
 (defun multi-project-last()
   "Jumps to the last chosen project."
   (interactive)
-  (let ((project) (result))
+  (let (project result)
     (if multi-project-anchored
         (setq project multi-project-anchored)
 
@@ -755,7 +755,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 
 (defun multi-project-tag-find-files (pattern)
   "Find a list of files based upon a regular expression PATTERN."
-  (let ((result nil))
+  (let (result)
     (save-excursion
       (let ((large-file-warning-threshold nil)
             (tags-add-tables nil))
@@ -825,7 +825,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
 
   (with-current-buffer multi-project-file-buffer
     (when multi-project-current-name
-      (let ((result nil))
+      (let (result)
 	(setq result (multi-project-find-files input))
 	(setq buffer-read-only nil)
 	(erase-buffer)
@@ -1014,9 +1014,9 @@ The contents are written to PROJECT-TAGS."
 (defun multi-project-present-project-new-frame ()
   "Jumps to the present project in a new frame."
   (interactive)
-  (let ((frame-parameters-alist (multi-project-create-frame-parameters))
-	frame)
-    (setq frame (make-frame frame-parameters-alist))
+  (let* ((frame-parameters-alist (multi-project-create-frame-parameters))
+	 (frame (make-frame frame-parameters-alist)))
+
     (select-frame-set-input-focus frame)
     (multi-project-present-project)))
 
@@ -1025,9 +1025,8 @@ The contents are written to PROJECT-TAGS."
   "Makes a new frame with the list of projects to visit."
   (interactive)
 
-  (let ((frame-parameters-alist (multi-project-create-frame-parameters))
-	frame)
-    (setq frame (make-frame frame-parameters-alist))
+  (let* ((frame-parameters-alist (multi-project-create-frame-parameters))
+	 (frame (make-frame frame-parameters-alist)))
     (select-frame-set-input-focus frame)
     (multi-project-display-projects)))
 
@@ -1036,7 +1035,7 @@ The contents are written to PROJECT-TAGS."
 Directories like .svn, .hg, and .git will be ignored. If a
 version control directory is not found, the default
 ‘grep-find-command’ is returned"
-  (let ((grep-command)
+  (let (grep-command
 	(exclusion))
     (cond ((file-exists-p ".hg")
 	   (setq exclusion ".hg"))
@@ -1094,7 +1093,7 @@ project is used."
 	  ;; invocation occurred within a project directory. If not, then create
 	  ;; the directory at the project root.
 
-	  (let ((shell-directory))
+	  (let (shell-directory)
 	    (if (multi-project-find-by-directory)
 		(setq shell-directory default-directory)
 	      (setq shell-directory (nth 1 project)))
@@ -1160,10 +1159,10 @@ project is used."
   "Add a project to the list of projects."
   (interactive)
   (let ((project-name (buffer-name))
-        (project-directory)
-        (project-tags)
-        (project-subdir)
-        (project-list))
+        project-directory
+        project-tags
+        project-subdir
+        project-list)
 
     (setq project-name (read-from-minibuffer "Project name: "
 					     project-name nil nil nil
@@ -1298,10 +1297,9 @@ project is used."
   (interactive)
   (multi-project-mark-project "G"))
 
-
 (defun multi-project-marked-projects (marker)
   "Return a list of marked projects based upon MARKER."
-  (let ((lst))
+  (let (lst)
     (save-excursion
       (goto-char (point-min))
       (while (re-search-forward (concat "^" marker " +\\([^\t]+\\)") nil t)
@@ -1356,13 +1354,12 @@ project is used."
 	(read-regexp prompt default 'grep-regexp-history)
       (read-regexp prompt default))))
 
-
 (defun multi-project-grep-projects (projects)
   "Execute the action on the marked PROJECTS."
   (when projects
     (let ((regex (multi-project-read-regexp))
 	  (files (read-from-minibuffer "File pattern: " "*"))
-	  (bufferlist '()))
+	  (bufferlist ()))
       (dolist (project projects)
 	(setq bufferlist (cons
 			  (multi-project-grep-project project regex files)
