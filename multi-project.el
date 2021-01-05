@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2021
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.34
+;; Version: 0.0.35
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -320,11 +320,9 @@ argument OTHERWINDOW open another window."
 
 (defun multi-project-cmd (cmd)
   "Append .bat to CMD if executing under Windows."
-  (let (result cmd)
-    (if (eq system-type 'windows-nt)
-	(setq result (concat cmd ".bat")))
-    result))
-
+  (if (eq system-type 'windows-nt)
+      (concat cmd ".bat")
+    cmd))
 
 (defun multi-project-compile-command (project)
   "Provide a compilation command based upon the PROJECT."
