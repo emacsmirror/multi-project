@@ -107,7 +107,7 @@
   "The fuction to use when compiling a project."
   :type 'string :group 'multi-project)
 
-(defcustom mutli-project-grep-exclusions '(".git" ".hg" ".svn" "node_modules" "build" ".gradle" "target")
+(defcustom multi-project-grep-exclusions '(".git" ".hg" ".svn" "node_modules" "build" ".gradle" "target")
   "List of directories to ignore when running grep."
   :type 'string :group 'multi-project)
 
@@ -1052,7 +1052,7 @@ ignored. If a version control directory is not found, the default
     (setq exclusion-list (delq nil (mapcar (lambda (x)
 					     (when (and x (file-exists-p x))
 					       (multi-project-compose-exclusion x)))
-					   mutli-project-grep-exclusions)))
+					   multi-project-grep-exclusions)))
 
     (setq exclusions (string-join exclusion-list " "))
 
