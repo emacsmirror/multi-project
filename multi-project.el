@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2021
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.35
+;; Version: 0.0.37
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -105,6 +105,10 @@
 
 (defcustom multi-project-compilation-command 'multi-project-compile-command
   "The fuction to use when compiling a project."
+  :type 'string :group 'multi-project)
+
+(defcustom mutli-project-grep-exclusions '(".git" ".hg" ".svn" "node_modules" "build" ".gradle" "target")
+  "List of directories to ignore when running grep."
   :type 'string :group 'multi-project)
 
 (defvar multi-project-dir (concat user-emacs-directory "multi-project")
@@ -227,35 +231,40 @@
     map)
   "Keymap for multi-project-minibuffer.")
 
-(defun multi-project-dired (projectdir directory &optional location
-				       otherwindow)
-  "Run `dired` on a particular project.
-The PROJECTDIR specifies the project directory and the location
-argument is used to place the cursor on a file or directory
-within PROJECTDIR. Optional argument OTHERWINDOW if non-nil, then
-open up a buffer in a different windows."
-  (if projectdir
-      (let ((directorypath projectdir)
-            (dir directory))
+(defun multi-project-open (projectdir directory &optional location load-file otherwindow)
+  "Open the project. The PROJECTDIR specifies the project
+directory and the location argument is used to place the cursor
+on a file or directory within PROJECTDIR. Optional argument
+load-file will invoke `find-file`. A non-nil OTHERWINDOW argument
+opens up a buffer in a different windows."
+  (when projectdir
 
-        (if location
-            (setq dir location))
+    (when location
+      (setq directory location))
 
-        (when directorypath
-          (if otherwindow
-              (dired-other-window directorypath)
-            (dired directorypath))
-          (goto-char (point-min))
-          (when dir
-            (if (re-search-forward dir nil t)
-                (goto-char (match-beginning 0))))))))
+    (let ((filename (concat projectdir "/" directory)))
 
-(defun multi-project-dired-project (solutionlist &optional location otherwindow)
+      (if load-file
+	  (find-file filename)
+	  (progn
+	    (if otherwindow
+		(dired-other-window projectdir)
+	      (dired projectdir))
+
+	    (goto-char (point-min))
+	    (when (re-search-forward directory nil t)
+              (goto-char (match-beginning 0))))))))
+
+
+(defun multi-project-open-project (solutionlist &optional location otherwindow)
   "Open up a dired window based upon the project.
 Argument SOLUTIONLIST Optional argument LOCATION Optional
 argument OTHERWINDOW open another window."
-  (multi-project-dired (nth 1 solutionlist) (nth 2 solutionlist) location
-		       otherwindow))
+  (let ((project-dir (nth 1 solutionlist))
+	(project-cursor-on-file (nth 2 solutionlist))
+	(project-load-file (nth 4 solutionlist)))
+
+    (multi-project-open project-dir project-cursor-on-file location project-load-file  otherwindow)))
 
 (defun multi-project-filter-name (project lst)
   "Filter based upon the the PROJECT name of the LST."
@@ -299,7 +308,7 @@ argument OTHERWINDOW open another window."
   (multi-project-filter-dir default-directory multi-project-roots))
 
 
-(defun multi-project-find-by-name(projectname)
+(defun multi-project-find-by-name (projectname)
   "Returns the project list that corresponds to the project name"
   (multi-project-filter-name projectname multi-project-roots))
 
@@ -341,6 +350,9 @@ argument OTHERWINDOW open another window."
 
 	((multi-project-file-exists project ".lein.*")
 	 "lein compile")
+
+	((multi-project-file-exists project "node_modules")
+	 "npm run build")
 
 	((multi-project-file-exists project "Rakefile")
 	 (concat "rake -f " (nth 1 project) "/Rakefile"))
@@ -440,8 +452,8 @@ argument OTHERWINDOW open another window."
     (if solutionlist
         (let ((searchdir (multi-project-find-root (nth 1 solutionlist)
                                                   default-directory)))
-          (multi-project-dired (nth 1 solutionlist) (nth 2 solutionlist)
-                               (multi-project-basename searchdir)))
+          (multi-project-open (nth 1 solutionlist) (nth 2 solutionlist)
+                              (multi-project-basename searchdir)))
       (multi-project-display-projects))))
 
 (defun multi-project-dirname (filename)
@@ -460,8 +472,8 @@ argument OTHERWINDOW open another window."
 
 ;;;###autoload
 (defun multi-project-change-tags (&optional project)
-  "Visits tags file based upon current directory. The optional
-PROJECT argument will change tags to the specified PROJECT."
+  "Visits tags file based upon current directory or optional
+PROJECT argument."
   (interactive)
   (let (solutionlist)
 
@@ -472,28 +484,23 @@ PROJECT argument will change tags to the specified PROJECT."
     (when solutionlist
 	(setq multi-project-current-name (car solutionlist))
 
-        (let ((filename (nth 3 solutionlist)))
-	  (if filename
-	      (setq filename (expand-file-name filename)))
+        (let* ((filename (nth 3 solutionlist))
+	       (filename-expanded (when filename
+				    (expand-file-name filename)))
+	       (tags-buffer (get-buffer "TAGS"))
+	       (same-tags-file (string= (buffer-file-name tags-buffer) filename-expanded)))
 
-          (when (and filename (file-exists-p (expand-file-name filename)))
+	  (when (and tags-buffer (not same-tags-file))
+	    (kill-buffer tags-buffer))
+
+          (when (and filename
+		     (not same-tags-file)
+		     (file-exists-p filename-expanded))
+
             (let ((large-file-warning-threshold nil)
-                  (tags-add-tables nil)
-		  (tags-buffer (get-buffer "TAGS")))
-
-	      (let (load-tags)
-		(cond (tags-buffer
-		       (let ((tags-filename (buffer-file-name tags-buffer)))
-			 (when (not (string= tags-filename filename))
-			   (kill-buffer tags-buffer)
-			   (setq load-tags t))))
-		      (t
-		       (setq load-tags t)))
-
-		(when load-tags
-		  (multi-project-visit-tags filename)
-		  (message "TAGS changed to %s" tags-file-name))
-		load-tags)))))))
+                  (tags-add-tables nil))
+	      (multi-project-visit-tags filename)
+	      (message "TAGS changed to %s" tags-file-name)))))))
 
 ;;;###autoload
 (defun multi-project-last()
@@ -513,7 +520,8 @@ PROJECT argument will change tags to the specified PROJECT."
 
       (setq result (multi-project-find-by-name project))
       (when result
-	(multi-project-dired-project result)
+	(multi-project-change-tags project)
+	(multi-project-open-project result)
 	(message "Last project %s" project)))))
 
 ;;;###autoload
@@ -684,7 +692,7 @@ use the anchored project."
   (let ((project-list (multi-project-find-by-name project-name)))
     (setq multi-project-current-name (car project-list))
     (multi-project-change-tags (car project-list))
-    (multi-project-dired-project project-list nil otherwindow)
+    (multi-project-open-project project-list nil otherwindow)
 
     (when (not (string-equal multi-project-current-name
 			     (car multi-project-history)))
@@ -996,7 +1004,7 @@ The contents are written to PROJECT-TAGS."
   "Jumps to the present project."
   (interactive)
   (let ((projectlist (multi-project-current)))
-    (multi-project-dired-project projectlist)))
+    (multi-project-open-project projectlist)))
 
 (defun multi-project-create-frame-parameters ()
   (let ((frame-parameters-alist default-frame-alist)
@@ -1028,26 +1036,29 @@ The contents are written to PROJECT-TAGS."
     (select-frame-set-input-focus frame)
     (multi-project-display-projects)))
 
+(defun multi-project-compose-exclusion (filename)
+  (when (file-exists-p filename)
+    (concat "-path '*/" filename "' -prune -o")))
+
 (defun multi-project-compose-grep ()
   "Compose the grep command and ignore version control directories.
-Directories like .svn, .hg, and .git will be ignored. If a
-version control directory is not found, the default
+Directories like .git, .hg, node_modules, and .svn will be
+ignored. If a version control directory is not found, the default
 ‘grep-find-command’ is returned"
-  (let (grep-command
-	(exclusion))
-    (cond ((file-exists-p ".hg")
-	   (setq exclusion ".hg"))
+  (let 	(exclusion-list
+	 exclusions)
 
-	  ((file-exists-p ".svn")
-	   (setq exclusion ".svn"))
 
-	  ((file-exists-p ".git")
-	   (setq exclusion ".git")))
+    (setq exclusion-list (delq nil (mapcar (lambda (x)
+					     (when (and x (file-exists-p x))
+					       (multi-project-compose-exclusion x)))
+					   mutli-project-grep-exclusions)))
 
-    (if exclusion
-	(cons (concat "find . -path '*/" exclusion
-		      "' -prune -o -type f -exec grep -nH -e  {} +")
-	      (+ 55 (length exclusion)))
+    (setq exclusions (string-join exclusion-list " "))
+
+    (if exclusions
+	(let ((command (concat "find . " exclusions " -type f -exec grep -nH -e  {} +")))
+	  (cons command (- (length command) 4)))
       grep-find-command)))
 
 ;;;###autoload
@@ -1055,18 +1066,10 @@ version control directory is not found, the default
   "Run ‘grep-find’ interactively."
   (interactive)
   (multi-project-root)
-
-  ;; grep-apply-setting generates an error when using tramp and attempting to
-  ;; apply the grep setting (wrong-type-argument consp nil)
-  (condition-case nil
-      (let ((orig-command grep-find-command))
-	(if (and orig-command grep-find-command)
-	    (grep-apply-setting 'grep-find-command (multi-project-compose-grep)))
-	(call-interactively 'grep-find)
-
-	(if (and orig-command grep-find-command)
-	    (grep-apply-setting 'grep-find-command orig-command)))
-    (error (call-interactively 'grep-find))))
+  (let ((orig-command grep-find-command))
+    (grep-apply-setting 'grep-find-command (multi-project-compose-grep))
+    (call-interactively 'grep-find)
+    (grep-apply-setting 'grep-find-command orig-command)))
 
 
 ;;;###autoload
@@ -1160,7 +1163,8 @@ project is used."
         project-directory
         project-tags
         project-subdir
-        project-list)
+        project-list
+	project-load-file)
 
     (setq project-name (read-from-minibuffer "Project name: "
 					     project-name nil nil nil
@@ -1176,21 +1180,20 @@ project is used."
 			    (file-name-as-directory project-directory)
                             (file-name-as-directory project-directory)))))
 
-    (setq project-list (list project-name project-directory project-subdir))
+    (when (and (file-regular-p (concat project-directory "/" project-subdir))
+	       (y-or-n-p (concat "Load " project-subdir " when visiting")))
+      (setq project-load-file t))
 
     (when (y-or-n-p "Use a TAGS file? ")
       (let ((tags-file (concat project-directory "/TAGS")))
 
 	(setq project-tags (read-file-name "Project tags: " tags-file tags-file))
-	(if (and (> (length project-tags) 0)
-		 (file-exists-p project-tags)
-		 (string-match "TAGS$" project-tags))
-	    (add-to-list 'project-list project-tags t))
-
 	(when (not (file-exists-p project-tags))
 	  (message "Creating TAGS file...")
-	  (multi-project-create-tags project-name project-directory project-tags)
-	  (add-to-list 'project-list project-tags t))))
+	  (multi-project-create-tags project-name project-directory project-tags))))
+
+    (setq project-list (list project-name project-directory project-subdir project-tags project-load-file))
+
 
     (add-to-list 'multi-project-roots project-list t)
     (multi-project-save-projects)
