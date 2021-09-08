@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2021
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.37
+;; Version: 0.0.38
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -93,6 +93,7 @@
 (require 'easymenu)
 (require 'grep)
 (require 'tramp)
+(require 'xref)
 
 (defgroup multi-project nil
   "Support for working with multiple projects."
@@ -890,9 +891,8 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
     (kill-buffer multi-project-file-buffer)))
 
 ;;;###autoload
-(defadvice find-tag (before multi-project-find-tag
-                            (TAGNAME &optional NEXT-P REGEXP-P))
-  "Find tag in project tags table based upon the current directory."
+(defadvice xref-find-definitions (before multi-project-xref-find-definitions)
+  "Switch the TAGS table based upon the project directory before trying to find the definition."
   (let ((project (multi-project-find-by-directory)))
     (when project
       (multi-project-change-tags (car project)))))
@@ -1405,9 +1405,9 @@ project is used."
         (unless multi-project-roots
           (multi-project-read-projects))
 
-        (ad-enable-advice 'find-tag 'before 'multi-project-find-tag)
-        (ad-activate 'find-tag))
-    (ad-disable-advice 'find-tag 'before 'multi-project-find-tag)))
+        (ad-enable-advice 'xref-find-definitions 'before 'multi-project-xref-find-definitions)
+        (ad-activate 'xref-find-definitions))
+    (ad-disable-advice 'xref-find-definitions 'before 'multi-project-xref-find-definitions)))
 
 (provide 'multi-project)
 
