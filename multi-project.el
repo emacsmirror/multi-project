@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2021
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.38
+;; Version: 0.0.39
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -340,8 +340,8 @@ argument OTHERWINDOW open another window."
 	 (concat "make -C " (nth 1 project) " "))
 
 	((multi-project-file-exists project "build.gradle")
-	 (concat (nth 1 project) "/" (multi-project-cmd "gradlew -b ")
-		 (nth 1 project) "/build.gradle build"))
+	 (concat (nth 1 project) "/" (multi-project-cmd "gradlew -p ")
+		 (nth 1 project) " "))
 
 	((multi-project-file-exists project "pom.xml")
 	 "mvn compile")
