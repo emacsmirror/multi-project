@@ -1,9 +1,9 @@
 ;;; multi-project.el --- Find files, compile, and search for multiple projects.
 
-;; Copyright (C) 2010 - 2021
+;; Copyright (C) 2010 - 2022
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.39
+;; Version: 0.0.40
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -521,7 +521,6 @@ PROJECT argument."
 
       (setq result (multi-project-find-by-name project))
       (when result
-	(multi-project-change-tags project)
 	(multi-project-open-project result)
 	(message "Last project %s" project)))))
 
@@ -692,7 +691,6 @@ use the anchored project."
   "Switch to the project based upon the PROJECT-NAME and optionally open OTHERWINDOW."
   (let ((project-list (multi-project-find-by-name project-name)))
     (setq multi-project-current-name (car project-list))
-    (multi-project-change-tags (car project-list))
     (multi-project-open-project project-list nil otherwindow)
 
     (when (not (string-equal multi-project-current-name
@@ -862,8 +860,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
     (let ((filename (buffer-substring-no-properties (point-at-bol)
 						    (point-at-eol))))
       (save-excursion
-	(visit-tags-table-buffer)
-	(find-file filename)))))
+	(find-file (concat (nth 1 (multi-project-current)) "/" filename))))))
 
 ;;;###autoload
 (defun multi-project-find-file ()
@@ -891,7 +888,7 @@ Optional argument OTHERWINDOW if true, the display is created in a secondary win
     (kill-buffer multi-project-file-buffer)))
 
 ;;;###autoload
-(defadvice xref-find-definitions (before multi-project-xref-find-definitions)
+(defadvice xref--find-definitions (before multi-project-xref--find-definitions)
   "Switch the TAGS table based upon the project directory before trying to find the definition."
   (let ((project (multi-project-find-by-directory)))
     (when project
@@ -987,8 +984,8 @@ The contents are written to PROJECT-TAGS."
 	(project))
     (unless result
       (setq project (multi-project-find-by-directory))
-      (if project
-	  (setq result (car project))))
+      (when project
+	(setq result (car project))))
     (multi-project-find-by-name result)))
 
 (defun multi-project-dir-current ()
@@ -1405,9 +1402,9 @@ project is used."
         (unless multi-project-roots
           (multi-project-read-projects))
 
-        (ad-enable-advice 'xref-find-definitions 'before 'multi-project-xref-find-definitions)
-        (ad-activate 'xref-find-definitions))
-    (ad-disable-advice 'xref-find-definitions 'before 'multi-project-xref-find-definitions)))
+        (ad-enable-advice 'xref--find-definitions 'before 'multi-project-xref--find-definitions)
+        (ad-activate 'xref--find-definitions))
+    (ad-disable-advice 'xref--find-definitions 'before 'multi-project-xref--find-definitions)))
 
 (provide 'multi-project)
 
