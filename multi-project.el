@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2022
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.43
+;; Version: 0.0.45
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -51,7 +51,7 @@
 ;; C-x p n - Add a new project         Prompts for new project information
 ;; C-x p r - Go to project root        Visits the project root
 ;; C-x p s - Project shell             Creates a project shell
-;; C-x p S - Project shell             Creates a project shell at the root
+;; C-x p S - Project root shell        Creates a project shell at the root
 ;; C-x p u - Resets the anchor         Unsets the project anchor
 ;; C-x p v - Visit a project           Visits another project in a separate frame
 
@@ -101,7 +101,7 @@
   :group 'convenience)
 
 (defcustom multi-project-roots nil
-  "A list describing the project, filesystem root, subdirectory
+  "A list describing the project, filesystem root, subdirectory.
 under the root, and the TAGS location."
   :type 'sexp :group 'multi-project)
 
@@ -142,6 +142,9 @@ under the root, and the TAGS location."
 
 (defconst multi-project-buffer "*mp*"
   "Buffer used for finding projects.")
+
+(defconst multi-project-file-buffer "*mp-find-file*"
+  "Buffer used for finding files.")
 
 (defface multi-project-selection-face
   ;; check if inherit attribute is supported
@@ -235,23 +238,24 @@ under the root, and the TAGS location."
   "Keymap for multi-project-minibuffer.")
 
 (defun multi-project-name (project)
-  "Return the name of the project"
+  "Return the project name based upon the PROJECT."
   (car project))
 
 (defun multi-project-dir (project)
-  "Return the project directory"
+  "Return the project directory based upon the PROJECT."
   (nth 1 project))
 
 (defun multi-project-tags (project)
-  "Return the filename of the TAGS file."
+  "Return the filename of the TAGS file for PROJECT."
   (nth 3 project))
 
 (defun multi-project-open (projectdir directory &optional location load-file otherwindow)
-  "Open the project. The PROJECTDIR specifies the project
-directory and the location argument is used to place the cursor
-on a file or directory within PROJECTDIR. Optional argument
-load-file will invoke `find-file`. A non-nil OTHERWINDOW argument
-opens up a buffer in a different windows."
+  "Open a project with the PROJECTDIR and DIRECTORY.
+The PROJECTDIR specifies the project directory and DIRECTORY is a
+subdirectory of PROJECTDIR.  The LOCATION places the cursor on a
+file or directory within PROJECTDIR.  Optional argument LOAD-FILE
+will invoke `find-file`.  A non-nil OTHERWINDOW argument opens up
+a buffer in a different windows."
   (when projectdir
 
     (when location
@@ -270,8 +274,9 @@ opens up a buffer in a different windows."
             (goto-char (match-beginning 0))))))))
 
 (defun multi-project-open-project (project &optional location otherwindow)
-  "Open up a dired window based upon the PROJECT. The LOCATION is
-used for cursors placement and OTHERWINDOW opens another window."
+  "Open up a Dired window based upon the PROJECT.
+The LOCATION is used for cursors placement and OTHERWINDOW opens
+another window."
   (let ((project-dir (multi-project-dir project))
 	(project-cursor-on-file (nth 2 project))
 	(project-load-file (nth 4 project)))
@@ -311,18 +316,18 @@ used for cursors placement and OTHERWINDOW opens another window."
   (mapcar (lambda (x)
             (replace-regexp-in-string "\\`[ \t\n]*" "" (replace-regexp-in-string "[ \t\n]*\\'" "" x))) lst))
 
-
-(defun multi-project-find-by-directory ()
-  "Return the project from the set of defined projects in
-'multi-projects-roots."
-  (multi-project-filter-dir default-directory multi-project-roots))
+(defun multi-project-find-by-directory (&optional directory)
+  "Return the project in 'multi-projects-roots based upon DIRECTION.
+If DIRECTORY is not specified, then the DEFAULT-DIRECTORY is
+used."
+  (multi-project-filter-dir (or directory default-directory) multi-project-roots))
 
 (defun multi-project-find-by-name (projectname)
-  "Returns the project list that corresponds to the project name"
+  "Return the project list that corresponds to the PROJECTNAME."
   (multi-project-filter-name projectname multi-project-roots))
 
 (defun multi-project-prompt ()
-  "Prompts for the project to work with."
+  "Prompt for the project to work with."
   (let (result
         project
         prompt)
@@ -333,7 +338,7 @@ used for cursors placement and OTHERWINDOW opens another window."
     result))
 
 (defun multi-project-file-exists (project regexp)
-  "Return true if the PROJECT constains a filename with a matching REGEXP."
+  "Return non-nil if the PROJECT constains a filename with a matching REGEXP."
   (directory-files (multi-project-dir project) nil regexp))
 
 (defun multi-project-cmd (cmd)
@@ -386,8 +391,7 @@ used for cursors placement and OTHERWINDOW opens another window."
 	   (concat "*" (downcase mode-name) "*")))))
 
 (defun multi-project-switch (project-name &optional otherwindow)
-  "Switch to the project based upon the PROJECT-NAME and optionally
-open OTHERWINDOW."
+  "Switch to a project using PROJECT-NAME and optionally open OTHERWINDOW."
   (let ((project-list (multi-project-find-by-name project-name)))
     (setq multi-project-current-name (multi-project-name project-list))
     (multi-project-open-project project-list nil otherwindow)
@@ -399,6 +403,7 @@ open OTHERWINDOW."
 
 ;;;###autoload
 (defun multi-project-toggle ()
+  "Toggle between the current project and the last."
   (interactive)
   (if (eq multi-project-current-name (car multi-project-history))
       (multi-project-switch (cadr multi-project-history))
@@ -497,8 +502,7 @@ open OTHERWINDOW."
 
 ;;;###autoload
 (defun multi-project-change-tags (&optional project)
-  "Visits tags file based upon current directory or optional
-PROJECT argument."
+  "Visit a TAGS file based upon the current directory or optional PROJECT argument."
   (interactive)
   (let (project)
 
@@ -547,8 +551,7 @@ PROJECT argument."
 
 ;;;###autoload
 (defun multi-project-anchor ()
-  "Prevent the tracking of switching between projects and always
-use the anchored project."
+  "Make `multi-project-last return the same anchored project."
   (interactive)
   (setq multi-project-anchored (multi-project-name (multi-project-find-by-directory)))
   (if multi-project-anchored
@@ -563,19 +566,12 @@ use the anchored project."
     (setq multi-project-anchored nil)))
 
 (defun multi-project-display-anchor ()
+  "Display the current anchored project."
   (interactive)
   (let ((project-list (multi-project-select)))
     (when project-list
       (setq multi-project-anchored (multi-project-name project-list))
       (message "%s anchored" multi-project-anchored))))
-
-;;;###autoload
-(defun multi-project-display-change-tags ()
-  (interactive)
-  (let ((project-list (multi-project-select)))
-    (when project-list
-      (multi-project-change-tags (multi-project-name project-list))
-      (message "Loaded tags for %s " (car project-list)))))
 
 (defun multi-project-max-length (projects)
   "Return the max length of the project within PROJECTS."
@@ -583,6 +579,7 @@ use the anchored project."
       (apply 'max(mapcar (lambda (x) (length (car x))) projects))))
 
 (defun multi-project-insert-line (key fs max-length)
+  "Insert a project line using KEY FS and MAX-LENGTH."
   (let ((numspaces (- max-length (length key))))
 
     (insert (concat "  " key))
@@ -599,20 +596,21 @@ use the anchored project."
 
 ;;;###autoload
 (defun multi-project-display-projects ()
-  "Displays a buffer with the projects"
+  "Displays a buffer with the projects."
   (interactive)
   (multi-project-create-display multi-project-previous-input)
   (switch-to-buffer multi-project-buffer))
 
 (defun multi-project-display-reset ()
-  "Resets the filter used for the projects."
+  "Reset the filter used for the projects."
   (interactive)
   (setq multi-project-previous-input nil)
   (multi-project-display-projects))
 
 
 (defun multi-project-create-display (&optional projectkey)
-  "Inserts the configured projects into the multi-project buffer."
+  "Insert the configured projects into the multi-project buffer.
+The PROJECTKEY will create a display with matching projects."
   (get-buffer-create multi-project-buffer)
 
   (with-current-buffer multi-project-buffer
@@ -669,8 +667,7 @@ use the anchored project."
   (move-overlay multi-project-overlay (point-at-bol) (point-at-eol)))
 
 (defun multi-project-move-selection (buf movefunc movearg)
-  "Move the selection marker to a new position in BUF determined by
-MOVEFUNC and MOVEARG."
+  "Move the selection marker in BUF determined by MOVEFUNC and MOVEARG."
   (unless (= (buffer-size (get-buffer buf)) 0)
     (save-selected-window
       (select-window (get-buffer-window buf))
@@ -732,7 +729,7 @@ a secondary window.e."
   (multi-project-display-select t))
 
 (defun multi-project-display-vc ()
-  "Select the project and visit with VC"
+  "Select the project and visit with VC."
   (interactive)
   (let ((project (multi-project-select)))
     (when project
@@ -769,12 +766,8 @@ a secondary window.e."
   (with-current-buffer multi-project-buffer
     (multi-project-display-select)))
 
-(defconst multi-project-file-buffer "*mp-find-file*"
-  "Buffer used for finding files.")
-
 (defun multi-project-tag-find-files (pattern)
-  "Find a list of files based upon a regular expression PATTERN in
-a TAGS file."
+  "Find a list of files based upon a regular expression PATTERN in a TAGS file."
   (let (result)
     (save-excursion
       (let ((large-file-warning-threshold nil)
@@ -789,12 +782,12 @@ a TAGS file."
     (sort result (lambda (a b) (string< a b)))))
 
 (defun multi-project-descend-dir-p (filename)
+  "Return non-nil when descending FILENAME."
   (let ((dirname (file-name-nondirectory filename)))
     (not (car (delq nil (mapcar (lambda (x) (string= x dirname)) multi-project-dir-exclusions))))))
 
 (defun multi-project-find-files-recurse (pattern)
-  "Find a list of files based upon a regular expression PATTERN
-by recursively walking the project directory."
+  "Find files with a regex PATTERN and recursively walk the project directory."
   (let* ((project (multi-project-find-by-name multi-project-current-name))
 	 (project-dir (concat (multi-project-dir project) "/"))
 	 (files (directory-files-recursively (multi-project-dir project) pattern nil 'multi-project-descend-dir-p)))
@@ -875,7 +868,7 @@ by recursively walking the project directory."
 	(multi-project-mark-line)))))
 
 (defun multi-project-check-file-input ()
-  "Check for input"
+  "Check for input."
   (if (sit-for 0.2)
       (let ((input (minibuffer-contents)))
         (if (and (not (string-equal input multi-project-previous-file-input))
@@ -895,7 +888,6 @@ by recursively walking the project directory."
 ;;;###autoload
 (defun multi-project-find-file ()
   "Search a TAGS file for a particular file that match a user's input."
-
   (interactive)
 
   (let ((tags-revert-without-query t))
@@ -919,8 +911,7 @@ by recursively walking the project directory."
 
 ;;;###autoload
 (defadvice xref--find-definitions (before multi-project-xref--find-definitions)
-  "Switch the TAGS table based upon the project directory before
-trying to find the definition."
+  "Switch the TAGS table based upon the project directory before trying to find the definition."
   (let ((project (multi-project-find-by-directory)))
     (when project
       (multi-project-change-tags (multi-project-name project)))))
@@ -976,7 +967,6 @@ The contents are written to PROJECT-TAGS."
 
 
     (setq process (multi-project-execute-tags-command buffer-name etags-command))
-
     ;; Create a list of files if etags is unable to provide
     ;; any contents for the TAGS file
 
@@ -1035,6 +1025,7 @@ The contents are written to PROJECT-TAGS."
     (multi-project-open-project projectlist)))
 
 (defun multi-project-create-frame-parameters ()
+  "Return the frame parameters."
   (let ((frame-parameters-alist default-frame-alist)
 	frame)
     (unless frame-parameters-alist
@@ -1056,7 +1047,7 @@ The contents are written to PROJECT-TAGS."
 
 ;;;###autoload
 (defun multi-project-visit-project ()
-  "Makes a new frame with the list of projects to visit."
+  "Make a new frame with the list of projects to visit."
   (interactive)
 
   (let* ((frame-parameters-alist (multi-project-create-frame-parameters))
@@ -1065,17 +1056,17 @@ The contents are written to PROJECT-TAGS."
     (multi-project-display-projects)))
 
 (defun multi-project-compose-exclusion (filename)
+  "Create a find path to exclude FILENAME."
   (when (file-exists-p filename)
     (concat "-path '*/" filename "' -prune -o")))
 
 (defun multi-project-compose-grep ()
   "Compose the grep command and ignore version control directories.
 Directories like .git, .hg, node_modules, and .svn will be
-ignored. If a version control directory is not found, the default
-‘grep-find-command’ is returned"
+ignored.  If a version control directory is not found, the
+default ‘grep-find-command’ is returned"
   (let 	(exclusion-list
 	 exclusions)
-
 
     (setq exclusion-list (delq nil (mapcar (lambda (x)
 					     (when (and x (file-exists-p x))
@@ -1102,12 +1093,12 @@ ignored. If a version control directory is not found, the default
 
 ;;;###autoload
 (defun multi-project-shell (&optional shell-directory)
-  "Create a shell with a buffer name of the project. The
-SHELL-DIRECTORY can be specified to create the shell in a
+  "Create a shell with a buffer name of the project.
+The SHELL-DIRECTORY can be specified to create the shell in a
 different directory."
   (interactive)
 
-  (let ((project (multi-project-find-by-directory)))
+  (let ((project (multi-project-find-by-directory shell-directory)))
     (when project
       (let* ((buffer-name (concat "*shell-" "<" (multi-project-name project) ">*"))
 	     (buffer (get-buffer buffer-name)))
@@ -1121,9 +1112,10 @@ different directory."
 
 ;;;###autoload
 (defun multi-project-root-shell ()
-  "Creates a shell at the root of the project."
+  "Create a shell at the root of the project.
+Uses the current probject instead of the current directory for the project."
   (interactive)
-  (multi-project-shell (multi-project-dir (multi-project-dir-current))))
+  (multi-project-shell (multi-project-dir (multi-project-find-by-name multi-project-current-name))))
 
 (defun multi-project-execute-tags-command (buffer-name etags-command)
   "Generate a TAGS file in BUFFER-NAME for ETAGS-COMMAND."
@@ -1175,7 +1167,6 @@ different directory."
 	     (setq files-command
 		   (concat "cd " local-project-directory "; "
 			   "find . -path '*/target' -prune -o -type f -print"))))
-
       (concat files-command " | etags -o " local-project-tags " -"))))
 
 (defun multi-project-add-project ()
