@@ -1,9 +1,9 @@
 ;;; multi-project.el --- Find files, compile, and search for multiple projects.
 
-;; Copyright (C) 2010 - 2022
+;; Copyright (C) 2010 - 2023
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.45
+;; Version: 0.0.46
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -108,6 +108,10 @@ under the root, and the TAGS location."
 (defcustom multi-project-compilation-command 'multi-project-compile-command
   "The fuction to use when compiling a project."
   :type 'string :group 'multi-project)
+
+(defvar multi-project-original-compile-buffer-fn nil
+  "Stores the original `compilation-buffer-name-function.
+The value is used when multi-project is disabled.")
 
 (defcustom multi-project-dir-exclusions '(".git" ".hg" ".svn" "node_modules" "build" ".gradle" "target" ".log")
   "List of directories to ignore when finding file or running grep."
@@ -299,12 +303,11 @@ another window."
 
 (defun multi-project-filter-dir (dir lst)
   "Return the projects for DIR based upon the LST of working directories."
-  (let (project)
     (when (> (length dir) 0)
-      (setq project (multi-project-compare-matches dir lst))
-      (if project
-	  (car project)
-	(multi-project-filter-dir (multi-project-parent-file dir) lst)))))
+      (let ((project (multi-project-compare-matches dir lst)))
+	(if project
+	    (car project)
+	  (multi-project-filter-dir (multi-project-parent-file dir) lst)))))
 
 (defun multi-project-filter-empty-string (lst)
   "Filter out empty strings from LST."
@@ -383,7 +386,6 @@ used."
 
 (defun multi-project-compile-buffer-name (mode-name)
   "Return the compilation buffer name based upon the project and MODE-NAME."
-
   (let ((project (multi-project-find-by-directory)))
     (cond (project
 	   (concat "*" (multi-project-name project) "-" (downcase mode-name) "*"))
@@ -429,14 +431,15 @@ used."
                    (funcall multi-project-compilation-command project)))))
 
     ;; Set the function for naming the compilation buffer
-    (unless compilation-buffer-name-function
+    (when (or (eq compilation-buffer-name-function 'compilation--default-buffer-name)
+	      (null compilation-buffer-name-function))
+      (setq multi-project-original-compile-buffer-fn compilation-buffer-name-function)
       (setq compilation-buffer-name-function 'multi-project-compile-buffer-name))
     (compile (multi-project-compile-prompt compile-command))))
 
 (defun multi-project-find-root (parentDir childDir)
   "Return the project root based upon the PARENTDIR and CHILDDIR."
   (interactive)
-
   (let ((tlst (split-string childDir "[/\\]"))
         (lst (split-string parentDir "[/\\]"))
         (fpath)
@@ -488,9 +491,8 @@ used."
 
 (defun multi-project-dirname (filename)
   "Return the directory name of FILENAME."
-  (let (filelist
-        result)
-    (setq filelist (reverse (split-string filename "/")))
+  (let ((filelist (reverse (split-string filename "/")))
+	result)
     (mapc (lambda (x) (setq result (concat x "/" result)))
           (cdr filelist))
     (directory-file-name result)))
@@ -504,21 +506,18 @@ used."
 (defun multi-project-change-tags (&optional project)
   "Visit a TAGS file based upon the current directory or optional PROJECT argument."
   (interactive)
-  (let (project)
+  (let ((mp-project (if project
+			(multi-project-find-by-name project)
+		      (multi-project-find-by-directory))))
 
-    (if project
-        (setq project (multi-project-find-by-name project))
-      (setq project (multi-project-find-by-directory)))
+    (when mp-project
+      (setq multi-project-current-name (multi-project-name mp-project))
 
-    (when project
-      (setq multi-project-current-name (multi-project-name project))
-
-      (let* ((filename (multi-project-tags project))
+      (let* ((filename (multi-project-tags mp-project))
 	     (filename-expanded (when filename
 				  (expand-file-name filename)))
 	     (tags-buffer (get-buffer "TAGS"))
 	     (same-tags-file (string= (buffer-file-name tags-buffer) filename-expanded)))
-
 	(when (and tags-buffer (not same-tags-file))
 	  (kill-buffer tags-buffer))
 
@@ -850,7 +849,6 @@ a secondary window.e."
 (defun multi-project-find-file-display (input)
   "Display the list of files that match INPUT from the minibuffer."
   (interactive)
-
   (with-current-buffer multi-project-file-buffer
     (when multi-project-current-name
       (let (result)
@@ -889,7 +887,6 @@ a secondary window.e."
 (defun multi-project-find-file ()
   "Search a TAGS file for a particular file that match a user's input."
   (interactive)
-
   (let ((tags-revert-without-query t))
     ;; Try determining which TAGS file
     (multi-project-change-tags)
@@ -931,7 +928,6 @@ a secondary window.e."
 
 (defun multi-project-add-tags-files (files tags-file)
   "Add the list of FILES to the TAGS-FILE file."
-
   (if (file-exists-p tags-file)
       (multi-project-visit-tags tags-file))
 
@@ -945,11 +941,9 @@ a secondary window.e."
 	(setq files (cdr files)))
       (write-region (point-min) (point-max) tags-file))))
 
-
 (defun multi-project-create-tags (project-name project-directory project-tags)
   "Create a TAGS file based upon the the PROJECT-NAME and PROJECT-DIRECTORY.
 The contents are written to PROJECT-TAGS."
-
   (let ((buffer-name (concat "*" project-name "-TAGS*"))
 	(etags-command
 	 (multi-project-create-tags-command project-directory
@@ -965,7 +959,6 @@ The contents are written to PROJECT-TAGS."
     (if (get-buffer buffer-name)
 	(kill-buffer (get-buffer buffer-name)))
 
-
     (setq process (multi-project-execute-tags-command buffer-name etags-command))
     ;; Create a list of files if etags is unable to provide
     ;; any contents for the TAGS file
@@ -977,11 +970,9 @@ The contents are written to PROJECT-TAGS."
 		 (= 0 (nth 7 (file-attributes project-tags)))))
 	(multi-project-create-tags-manually project-directory project-tags))))
 
-
 (defun multi-project-recreate-tags ()
   "Create or re-create the TAGS file based upon the project."
   (interactive)
-
   (let ((project (multi-project-dir-current)))
     (when project
       (let* ((project-name (multi-project-name project))
@@ -1011,7 +1002,6 @@ The contents are written to PROJECT-TAGS."
 
 (defun multi-project-dir-current ()
   "Find the project based upon the current directory and the current project."
-
   (let ((result (multi-project-find-by-directory)))
     (unless result
       (setq result (multi-project-current)))
@@ -1049,7 +1039,6 @@ The contents are written to PROJECT-TAGS."
 (defun multi-project-visit-project ()
   "Make a new frame with the list of projects to visit."
   (interactive)
-
   (let* ((frame-parameters-alist (multi-project-create-frame-parameters))
 	 (frame (make-frame frame-parameters-alist)))
     (select-frame-set-input-focus frame)
@@ -1065,15 +1054,11 @@ The contents are written to PROJECT-TAGS."
 Directories like .git, .hg, node_modules, and .svn will be
 ignored.  If a version control directory is not found, the
 default ‘grep-find-command’ is returned"
-  (let 	(exclusion-list
-	 exclusions)
-
-    (setq exclusion-list (delq nil (mapcar (lambda (x)
+  (let*	((exclusion-list (delq nil (mapcar (lambda (x)
 					     (when (and x (file-exists-p x))
 					       (multi-project-compose-exclusion x)))
 					   multi-project-dir-exclusions)))
-
-    (setq exclusions (string-join exclusion-list " "))
+	 (exclusions (string-join exclusion-list " ")))
 
     (if exclusions
 	(let ((command (concat "find . " exclusions " -type f -exec grep -nH -e  {} +")))
@@ -1097,7 +1082,6 @@ default ‘grep-find-command’ is returned"
 The SHELL-DIRECTORY can be specified to create the shell in a
 different directory."
   (interactive)
-
   (let ((project (multi-project-find-by-directory shell-directory)))
     (when project
       (let* ((buffer-name (concat "*shell-" "<" (multi-project-name project) ">*"))
@@ -1140,7 +1124,6 @@ Uses the current probject instead of the current directory for the project."
 (defun multi-project-create-tags-command (project-directory project-tags)
   "Return the tags command based upon PROJECT-DIRECTORY and PROJECT-TAGS."
   (interactive)
-
   (let ((local-project-directory
 	 (multi-project-tramp-local-file project-directory))
 
@@ -1206,7 +1189,6 @@ Uses the current probject instead of the current directory for the project."
 	  (multi-project-create-tags project-name project-directory project-tags))))
 
     (setq project-list (list project-name project-directory project-subdir project-tags project-load-file))
-
 
     (add-to-list 'multi-project-roots project-list t)
     (multi-project-save-projects)
@@ -1340,7 +1322,6 @@ Uses the current probject instead of the current directory for the project."
   "Execute grep on PROJECT based upon REGEX and FILES."
   (let ((projectdir (multi-project-dir (multi-project-find-by-name project)))
         (buffername (concat "*" project "-grep*")))
-
     (save-excursion
       (if (get-buffer buffername)
 	  (kill-buffer buffername))
@@ -1404,7 +1385,6 @@ Uses the current probject instead of the current directory for the project."
     (when project
       (insert (expand-file-name (multi-project-dir project))))))
 
-
 ;;;###autoload
 (define-minor-mode multi-project-mode
   "Toggle multi-project mode."
@@ -1419,7 +1399,10 @@ Uses the current probject instead of the current directory for the project."
 
         (ad-enable-advice 'xref--find-definitions 'before 'multi-project-xref--find-definitions)
         (ad-activate 'xref--find-definitions))
-    (ad-disable-advice 'xref--find-definitions 'before 'multi-project-xref--find-definitions)))
+    (progn
+      (when (eq compilation-buffer-name-function 'multi-project-compile-buffer-name)
+	(setq compilation-buffer-name-function multi-project-original-compile-buffer-fn))
+      (ad-disable-advice 'xref--find-definitions 'before 'multi-project-xref--find-definitions))))
 
 (provide 'multi-project)
 
