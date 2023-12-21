@@ -3,7 +3,7 @@
 ;; Copyright (C) 2010 - 2023
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.46
+;; Version: 0.0.47
 ;; Package-Requires: ((emacs "25"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
@@ -94,6 +94,7 @@
 (require 'tramp)
 (require 'xref)
 (require 'delsel)
+(require 'cus-face)
 
 (defgroup multi-project nil
   "Support for working with multiple projects."
@@ -183,7 +184,7 @@ The value is used when multi-project is disabled.")
     (define-key map (kbd "C-x pt") 'multi-project-toggle)
     (define-key map (kbd "C-x pT") 'multi-project-recreate-tags)
 
-    (easy-menu-define multi-project-mode-menu map "'multi-project-mode' menu"
+    (easy-menu-define multi-project-mode-menu map "multi-project-mode menu"
       '("MP"
 	["Jump to a project" multi-project-display-projects t]
 	["Jump to the project root" multi-project-root t]
@@ -320,7 +321,7 @@ another window."
             (replace-regexp-in-string "\\`[ \t\n]*" "" (replace-regexp-in-string "[ \t\n]*\\'" "" x))) lst))
 
 (defun multi-project-find-by-directory (&optional directory)
-  "Return the project in 'multi-projects-roots based upon DIRECTION.
+  "Return the project in 'MULTI-PROJECTS-ROOTS based upon DIRECTION.
 If DIRECTORY is not specified, then the DEFAULT-DIRECTORY is
 used."
   (multi-project-filter-dir (or directory default-directory) multi-project-roots))
@@ -360,7 +361,8 @@ used."
 		 (multi-project-dir project) " "))
 
 	((multi-project-file-exists project "pom.xml")
-	 "mvn compile")
+	 (concat "mvn -f " (multi-project-dir project) "/pom.xml package"))
+
 
 	((multi-project-file-exists project "build.xml")
 	 (concat "ant -f " (multi-project-dir project) "/build.xml "))
@@ -368,7 +370,7 @@ used."
 	((multi-project-file-exists project ".lein.*")
 	 "lein compile")
 
-	((multi-project-file-exists project "node_modules")
+	((multi-project-file-exists project "package.json")
 	 "npm run build")
 
 	((multi-project-file-exists project "Rakefile")
@@ -589,7 +591,7 @@ used."
     (insert fs)
 
     (insert " ")
-    (add-text-properties (point-at-bol) (point-at-eol)
+    (add-text-properties (line-beginning-position) (line-end-position)
                          '(mouse-face highlight))
     (insert "\n")))
 
@@ -663,7 +665,7 @@ The PROJECTKEY will create a display with matching projects."
 
 (defun multi-project-mark-line ()
   "Mark the current line."
-  (move-overlay multi-project-overlay (point-at-bol) (point-at-eol)))
+  (move-overlay multi-project-overlay (line-beginning-position) (line-end-position)))
 
 (defun multi-project-move-selection (buf movefunc movearg)
   "Move the selection marker in BUF determined by MOVEFUNC and MOVEARG."
@@ -678,7 +680,7 @@ The PROJECTKEY will create a display with matching projects."
 
       ;; if line end is point-max then it's either an incomplete line or
       ;; the end of the output, so move up a line
-      (if (= (point-at-eol) (point-max))
+      (if (= (line-end-position) (point-max))
           (forward-line -1))
 
       (multi-project-mark-line))))
@@ -706,7 +708,7 @@ The PROJECTKEY will create a display with matching projects."
 (defun multi-project-select ()
   "Select the project from the displayed list."
   (interactive)
-  (let ((selectedline (buffer-substring-no-properties (point-at-bol) (point-at-eol)))
+  (let ((selectedline (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
         (project))
 
     (setq project (multi-project-trim-string (multi-project-filter-empty-string
@@ -878,8 +880,8 @@ a secondary window.e."
 (defun multi-project-file-select ()
   "Select from the list of files presented."
   (with-current-buffer multi-project-file-buffer
-    (let ((filename (buffer-substring-no-properties (point-at-bol)
-						    (point-at-eol))))
+    (let ((filename (buffer-substring-no-properties (line-beginning-position)
+						    (line-end-position))))
       (save-excursion
 	(find-file (concat (multi-project-dir (multi-project-current)) "/" filename))))))
 
@@ -1254,21 +1256,21 @@ Uses the current probject instead of the current directory for the project."
 (defun multi-project-mark-project (mark-symbol)
   "Mark the selected projects with MARK-SYMBOL."
   (setq buffer-read-only nil)
-  (goto-char (point-at-bol))
+  (goto-char (line-beginning-position))
   (insert mark-symbol)
   (delete-char 1)
   (multi-project-next-line)
-  (goto-char (point-at-bol))
+  (goto-char (line-beginning-position))
   (setq buffer-read-only t))
 
 (defun multi-project-unmark-project ()
   "Unmark the selected projects."
   (interactive)
   (setq buffer-read-only nil)
-  (goto-char (point-at-bol))
+  (goto-char (line-beginning-position))
   (delete-char 1)
   (insert " ")
-  (goto-char (point-at-bol))
+  (goto-char (line-beginning-position))
   (multi-project-next-line)
   (setq buffer-read-only t))
 
@@ -1280,7 +1282,7 @@ Uses the current probject instead of the current directory for the project."
       (multi-project-display-projects)
       (goto-char (point-min))
       (when (re-search-forward project nil t)
-        (goto-char (point-at-bol))
+        (goto-char (line-beginning-position))
         (multi-project-mark-line)))))
 
 (defun multi-project-mark-deletions ()
@@ -1315,7 +1317,7 @@ Uses the current probject instead of the current directory for the project."
 	(if (> current-point (point-max))
 	    (setq current-point (point-max)))
 	(goto-char current-point)
-	(goto-char (point-at-bol))
+	(goto-char (line-beginning-position))
 	(multi-project-mark-line)))))
 
 (defun multi-project-grep-project (project regex files)
