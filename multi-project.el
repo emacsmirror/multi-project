@@ -1,10 +1,10 @@
-;;; multi-project.el --- Find files, compile, and search for multiple projects.
+;;; multi-project.el --- Find files, compile, and search for multiple projects
 
 ;; Copyright (C) 2010 - 2023
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
 ;; Version: 0.0.47
-;; Package-Requires: ((emacs "25"))
+;; Package-Requires: ((emacs "26.1"))
 ;; URL: https://hg.osdn.net/view/multi-project/multi-project
 ;; Keywords: convenience project management
 ;;
@@ -634,8 +634,7 @@ The PROJECTKEY will create a display with matching projects."
 		  (propertize name
 			      'column-name name
 			      'help-echo "mouse-1: sort by column"
-			      'mouse-face 'highlight
-			      )))))
+			      'mouse-face 'highlight)))))
 	   ;; We take a trick from buff-menu and have a dummy leading
 	   ;; space to align the header line with the beginning of the
 	   ;; text.  This doesn't really work properly on Emacs 21,
@@ -908,7 +907,6 @@ a secondary window.e."
       (multi-project-file-select))
     (kill-buffer multi-project-file-buffer)))
 
-;;;###autoload
 (defadvice xref--find-definitions (before multi-project-xref--find-definitions)
   "Switch the TAGS table based upon the project directory before trying to find the definition."
   (let ((project (multi-project-find-by-directory)))
