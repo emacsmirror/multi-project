@@ -25,7 +25,7 @@ Add the lines below in your .emacs file to use multi-project:
 The image below shows the selection of a project from the project window and
 then using the multi-project find-file to filter the project files.
 
-![Multi-project-recording.gif](https://osdn.dl.osdn.net/storage/g/m/mu/multi-project/Multi-Project-recording.gif)
+![Multi-project-recording.gif](https://github.com/ellisvelo/multi-project/blob/main/Multi-project-recording.gif)
 
 ## Searching Across Multiple Projects
 
