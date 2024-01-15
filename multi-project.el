@@ -1,28 +1,26 @@
-;;; multi-project.el --- Find files, compile, and search for multiple projects
+;;; multi-project.el --- Find files, compile, and search in multiple projects
 
-;; Copyright (C) 2010 - 2023
+;; Copyright (C) 2010 - 2024
 
 ;; Author: Shawn Ellis <shawn.ellis17@gmail.com>
-;; Version: 0.0.47
+;; Version: 0.0.48
 ;; Package-Requires: ((emacs "26.1"))
-;; URL: https://hg.osdn.net/view/multi-project/multi-project
+;; URL: https://github.com/ellisvelo/multi-project.git
 ;; Keywords: convenience project management
 ;;
 
-;; multi-project.el is free software; you can redistribute it and/or modify
+;; Multi-project is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
-;; multi-project.el is distributed in the hope that it will be useful,
+;; Multi-project is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ;; General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; along with Multi-project.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -32,7 +30,7 @@
 ;; supports interactively finding a file within a project by using a TAGS file.
 
 ;;
-;; To use multi-project add the following lines within your .emacs file:
+;; To use Multi-project add the following lines within your .emacs file:
 ;;
 ;; (require 'multi-project)
 ;; (multi-project-mode)
